@@ -47,8 +47,10 @@ export default async function ProviderRequestDetailPage({ params }: Props) {
 
   if (!catMatch) notFound()
 
-  const category = (booking.service_categories as any)?.[0] as { name: string; icon_url: string | null } | null
-  const profile = (booking.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+  const rawCat = booking.service_categories as any
+  const category = (Array.isArray(rawCat) ? rawCat[0] : rawCat) as { name: string; icon_url: string | null } | null
+  const rawProfile = booking.profiles as any
+  const profile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as { full_name: string | null; avatar_url: string | null; city: string | null } | null
   const completedCount = (completedBookings ?? []).length
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()

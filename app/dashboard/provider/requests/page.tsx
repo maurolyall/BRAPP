@@ -49,15 +49,20 @@ export default async function ProviderRequestsPage() {
 
   // Build category name map
   const categoryNameMap = (providerCats ?? []).reduce<Record<string, string>>((acc, pc) => {
-    const cat = (pc.service_categories as any)?.[0] as { name: string } | null
-    if (cat) acc[pc.category_id] = cat.name
+    const rawCat = pc.service_categories as any
+    const cat = Array.isArray(rawCat) ? rawCat[0] : rawCat
+    if (cat?.name) acc[pc.category_id] = cat.name
     return acc
   }, {})
 
-  const categories = (providerCats ?? []).map((pc) => ({
-    id: pc.category_id,
-    name: (pc.service_categories as any)?.[0]?.name ?? pc.category_id,
-  }))
+  const categories = (providerCats ?? []).map((pc) => {
+    const rawCat = pc.service_categories as any
+    const cat = Array.isArray(rawCat) ? rawCat[0] : rawCat
+    return {
+      id: pc.category_id,
+      name: cat?.name ?? pc.category_id,
+    }
+  })
 
   // Fetch accepted offers waiting for this provider's confirmation
   const { data: pendingOffers } = await supabase

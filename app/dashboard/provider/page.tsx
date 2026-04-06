@@ -68,8 +68,10 @@ export default async function ProviderHomePage() {
 
       {/* Pending confirmation */}
       {hasPending && (() => {
-        const cat = (pendingBooking.service_categories as any)?.[0]?.name ?? '—'
-        const client = (pendingBooking.profiles as any)?.[0]?.full_name ?? 'Cliente'
+        const rawCat = pendingBooking.service_categories as any
+        const cat = (Array.isArray(rawCat) ? rawCat[0] : rawCat)?.name ?? '—'
+        const rawProfile = pendingBooking.profiles as any
+        const client = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile)?.full_name ?? 'Cliente'
         return (
           <>
             <h2 className="text-base font-bold animate-fade-in" style={{ color: 'var(--text-dark)', animationDelay: '120ms' }}>Pendiente de tu confirmación</h2>
@@ -108,8 +110,10 @@ export default async function ProviderHomePage() {
 
       {/* Confirmed job in progress */}
       {hasConfirmed && (() => {
-        const cat = (confirmedBooking.service_categories as any)?.[0]?.name ?? '—'
-        const clientProfile = (confirmedBooking.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+        const rawCat = confirmedBooking.service_categories as any
+        const cat = (Array.isArray(rawCat) ? rawCat[0] : rawCat)?.name ?? '—'
+        const rawProfile = confirmedBooking.profiles as any
+        const clientProfile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as { full_name: string | null; avatar_url: string | null; city: string | null } | null
         const initials = clientProfile?.full_name
           ? clientProfile.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
           : '?'

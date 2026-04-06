@@ -28,7 +28,7 @@ export default async function ClientActivityPage() {
     scheduled_date: b.scheduled_date as string | null,
     address: b.address as string | null,
     created_at: b.created_at,
-    category_name: (b.service_categories as any)?.[0]?.name ?? '—',
+    category_name: (Array.isArray(b.service_categories) ? b.service_categories[0]?.name : (b.service_categories as any)?.name) ?? '—',
     offerCount: offerCountMap[b.id] ?? 0,
   }))
 

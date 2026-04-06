@@ -22,7 +22,8 @@ export default async function ProviderBookingDetailPage({ params }: Props) {
 
   if (!booking) notFound()
 
-  const clientProfile = (booking.profiles as any)?.[0] as {
+  const rawProfile = booking.profiles as any
+  const clientProfile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as {
     full_name: string | null
     email: string | null
     phone: string | null
@@ -36,7 +37,8 @@ export default async function ProviderBookingDetailPage({ params }: Props) {
     .eq('user_id', booking.user_id)
     .eq('status', 'completed')
 
-  const category = (booking.service_categories as any)?.[0]?.name ?? '—'
+  const rawCat = booking.service_categories as any
+  const category = (Array.isArray(rawCat) ? rawCat[0] : rawCat)?.name ?? '—'
   const client = clientProfile?.full_name ?? 'Cliente'
   const status = booking.status as string
   const completedCount = (completedBookings ?? []).length

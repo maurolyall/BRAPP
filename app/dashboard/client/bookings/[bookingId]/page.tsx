@@ -33,14 +33,16 @@ export default async function BookingDetailPage({ params, searchParams }: Props)
 
   if (!booking) notFound()
 
-  const category = (booking.service_categories as any)?.[0]?.name ?? '—'
+  const rawCat = booking.service_categories as any
+  const category = (Array.isArray(rawCat) ? rawCat[0] : rawCat)?.name ?? '—'
   const status = booking.status as string
   const isConfirmed = status === 'confirmed'
   const offerCount = (offers ?? []).length
   const hasOffers = offerCount > 0 && status === 'searching'
 
   // Provider info (only relevant when confirmed)
-  const providerProfile = (booking.profiles as any)?.[0] as {
+  const rawProfile = booking.profiles as any
+  const providerProfile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as {
     full_name: string | null
     avatar_url: string | null
     city: string | null
@@ -340,7 +342,8 @@ export default async function BookingDetailPage({ params, searchParams }: Props)
             ) : (
               <div className="flex flex-col gap-4">
                 {offers.map((offer) => {
-                  const provider = (offer.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null } | null
+                  const rawProvider = offer.profiles as any
+                  const provider = (Array.isArray(rawProvider) ? rawProvider[0] : rawProvider) as { full_name: string | null; avatar_url: string | null } | null
                   const providerCat = providerCatMap[offer.provider_id]
                   const initials = provider?.full_name
                     ? provider.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()

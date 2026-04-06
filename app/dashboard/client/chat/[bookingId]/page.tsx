@@ -21,10 +21,12 @@ export default async function ClientChatPage({ params }: Props) {
 
   if (!booking) notFound()
 
-  const providerProfile = (booking.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null } | null
+  const rawProfile = booking.profiles as any
+  const providerProfile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as { full_name: string | null; avatar_url: string | null } | null
   const otherUserName = providerProfile?.full_name ?? 'Proveedor'
   const otherUserAvatar = providerProfile?.avatar_url ?? null
-  const category = (booking.service_categories as any)?.[0]?.name ?? '—'
+  const rawCat = booking.service_categories as any
+  const category = (Array.isArray(rawCat) ? rawCat[0] : rawCat)?.name ?? '—'
 
   // Load existing messages for this chat
   const { data: messages } = await supabase

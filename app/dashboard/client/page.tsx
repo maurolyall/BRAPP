@@ -24,7 +24,7 @@ export default async function ClientHomePage() {
     : { data: [] }
 
   const offerCount = (offerRows ?? []).length
-  const category = (booking?.service_categories as any)?.[0]?.name ?? '—'
+  const category = (Array.isArray(booking?.service_categories) ? booking.service_categories[0]?.name : (booking?.service_categories as any)?.name) ?? '—'
   const status = booking?.status as string | undefined
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
 
