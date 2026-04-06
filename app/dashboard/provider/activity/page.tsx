@@ -52,12 +52,12 @@ export default async function ProviderActivityPage() {
   type ActivityStatus = 'pending_confirmation' | 'confirmed' | 'completed' | 'cancelled'
 
   const mapBooking = (b: { id: string; user_id: string; scheduled_date: unknown; service_categories: unknown; profiles: unknown }, status: ActivityStatus) => {
-    const profile = b.profiles as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+    const profile = (b.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
     return {
       id: b.id,
       bookingId: b.id,
       status,
-      category_name: (b.service_categories as { name: string } | null)?.name ?? '—',
+      category_name: (b.service_categories as any)?.[0]?.name ?? '—',
       client_name: profile?.full_name ?? null,
       client_avatar_url: profile?.avatar_url ?? null,
       client_city: profile?.city ?? null,

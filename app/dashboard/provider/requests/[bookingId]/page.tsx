@@ -47,8 +47,8 @@ export default async function ProviderRequestDetailPage({ params }: Props) {
 
   if (!catMatch) notFound()
 
-  const category = booking.service_categories as { name: string; icon_url: string | null } | null
-  const profile = booking.profiles as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+  const category = (booking.service_categories as any)?.[0] as { name: string; icon_url: string | null } | null
+  const profile = (booking.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
   const completedCount = (completedBookings ?? []).length
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()

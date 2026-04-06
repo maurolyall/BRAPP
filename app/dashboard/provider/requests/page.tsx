@@ -49,14 +49,14 @@ export default async function ProviderRequestsPage() {
 
   // Build category name map
   const categoryNameMap = (providerCats ?? []).reduce<Record<string, string>>((acc, pc) => {
-    const cat = pc.service_categories as { name: string } | null
+    const cat = (pc.service_categories as any)?.[0] as { name: string } | null
     if (cat) acc[pc.category_id] = cat.name
     return acc
   }, {})
 
   const categories = (providerCats ?? []).map((pc) => ({
     id: pc.category_id,
-    name: (pc.service_categories as { name: string } | null)?.name ?? pc.category_id,
+    name: (pc.service_categories as any)?.[0]?.name ?? pc.category_id,
   }))
 
   // Fetch accepted offers waiting for this provider's confirmation
@@ -117,7 +117,7 @@ export default async function ProviderRequestsPage() {
   const offeredSet = new Set((myOffers ?? []).map((o) => o.booking_id))
 
   const requests = (bookings ?? []).map((b) => {
-    const profile = b.profiles as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+    const profile = (b.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
     return {
       id: b.id,
       description: b.description ?? null,
@@ -135,7 +135,7 @@ export default async function ProviderRequestsPage() {
   })
 
   const pendingConfirmation = (pendingBookings ?? []).map((b) => {
-    const profile = b.profiles as unknown as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+    const profile = (b.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
     return {
       id: b.id,
       description: b.description ?? null,
