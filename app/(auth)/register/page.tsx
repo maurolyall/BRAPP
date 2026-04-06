@@ -425,7 +425,7 @@ function RegisterForm() {
                       placeholder="Ej: 11 1234 5678"
                       value={providerPhone}
                       onChange={(e) => setProviderPhone(e.target.value)}
-                      className="flex-1 px-4 py-3 rounded-full text-sm border outline-none"
+                      className="flex-1 px-4 py-3 rounded-full text-[16px] border outline-none"
                       style={{ borderColor: '#d0d0d0', backgroundColor: 'var(--bg-cards)', color: 'var(--text-dark)' }}
                     />
                   </div>
@@ -461,7 +461,7 @@ function RegisterForm() {
                 placeholder="Buscar servicio..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full px-4 py-3 rounded-full text-sm border outline-none mb-5"
+                className="w-full px-4 py-3 rounded-full text-[16px] border outline-none mb-5"
                 style={{ borderColor: '#e0e0e0', backgroundColor: 'var(--bg-body)', color: 'var(--text-dark)' }}
               />
 

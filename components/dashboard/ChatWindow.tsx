@@ -251,7 +251,7 @@ export default function ChatWindow({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Escribí un mensaje..."
-          className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none"
+          className="flex-1 rounded-full px-4 py-2.5 text-[16px] outline-none"
           style={{
             backgroundColor: 'var(--bg-cards)',
             color: 'var(--text-dark)',
