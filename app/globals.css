@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary-red: #E60611;
+  --bg-cards: #ffffff;
+  --bg-body: #F3F3F3;
+  --text-dark: #020205;
+  --text-muted: #6c757d;
+  --color-inactive: #d1d5db;
+  --color-success: #3ABF38;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: var(--bg-body);
+    color: var(--text-dark);
+    font-family: 'Comfortaa', system-ui, -apple-system, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .card {
+    background-color: var(--bg-cards);
+    border-radius: 1.25rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease;
+  }
+
+  /* Dashboard card: card base + padding estándar para todas las tarjetas del dashboard */
+  .dash-card {
+    background-color: var(--bg-cards);
+    border-radius: 1.25rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+    padding: 1.25rem;
+  }
+
+  .btn-primary {
+    background-color: var(--primary-red);
+    color: white;
+    padding: 0.75rem 2rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary:hover {
+    background-color: #cc000a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(230, 6, 17, 0.3);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .input-base {
+    width: 100%;
+    padding: 0.75rem 1.25rem;
+    border-radius: 9999px;
+    border: 1.5px solid #e5e7eb;
+    background-color: white;
+    color: var(--text-dark);
+    font-family: 'Comfortaa', sans-serif;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+  }
+
+  .input-base:focus {
+    border-color: var(--primary-red);
+    box-shadow: 0 0 0 3px rgba(230, 6, 17, 0.1);
+  }
+
+  .input-base::placeholder {
+    color: #aaa;
+    font-weight: 500;
+  }
+
+  input[type="date"].input-base {
+    color: var(--text-muted);
+  }
+
+  input[type="date"].input-base:valid {
+    color: var(--text-dark);
+  }
+}
