@@ -122,7 +122,8 @@ export default async function ProviderRequestsPage() {
   const offeredSet = new Set((myOffers ?? []).map((o) => o.booking_id))
 
   const requests = (bookings ?? []).map((b) => {
-    const profile = (b.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+    const rawProfile = b.profiles as any
+    const profile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as { full_name: string | null; avatar_url: string | null; city: string | null } | null
     return {
       id: b.id,
       description: b.description ?? null,
@@ -140,7 +141,8 @@ export default async function ProviderRequestsPage() {
   })
 
   const pendingConfirmation = (pendingBookings ?? []).map((b) => {
-    const profile = (b.profiles as any)?.[0] as { full_name: string | null; avatar_url: string | null; city: string | null } | null
+    const rawProfile = b.profiles as any
+    const profile = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as { full_name: string | null; avatar_url: string | null; city: string | null } | null
     return {
       id: b.id,
       description: b.description ?? null,
