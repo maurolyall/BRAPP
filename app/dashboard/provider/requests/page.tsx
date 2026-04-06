@@ -168,7 +168,7 @@ export default async function ProviderRequestsPage() {
         {/* Right: image */}
         <div className="flex items-end justify-end flex-shrink-0" style={{ width: 100 }}>
           <Image
-            src="/icons/PROVEEDOR-creado.svg"
+            src="/icons/proveedor-creado.svg"
             alt="Proveedor"
             width={100}
             height={100}

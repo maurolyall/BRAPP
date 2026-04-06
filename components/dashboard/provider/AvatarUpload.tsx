@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Cropper, { Area } from 'react-easy-crop'
 import { createClient } from '@/lib/supabaseClient'
 import { useToast } from '@/components/ui/ToastProvider'
@@ -39,6 +40,11 @@ export default function AvatarUpload({ userId, avatarUrl: initialUrl }: Props) {
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -142,7 +148,7 @@ export default function AvatarUpload({ userId, avatarUrl: initialUrl }: Props) {
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
 
       {/* Crop modal */}
-      {imageSrc && (
+      {imageSrc && isMounted && createPortal(
         <div className="fixed inset-0 z-[100] flex flex-col" style={{ backgroundColor: '#000' }}>
           {/* Cropper area */}
           <div className="relative flex-1">
@@ -192,7 +198,8 @@ export default function AvatarUpload({ userId, avatarUrl: initialUrl }: Props) {
               {uploading ? 'Subiendo...' : 'Usar foto'}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

@@ -32,10 +32,10 @@ export default async function ProviderHomePage() {
 
   const { data: clientCompletedBookings } = hasConfirmed && confirmedBooking.user_id
     ? await supabase
-        .from('bookings')
-        .select('id')
-        .eq('user_id', confirmedBooking.user_id)
-        .eq('status', 'completed')
+      .from('bookings')
+      .select('id')
+      .eq('user_id', confirmedBooking.user_id)
+      .eq('status', 'completed')
     : { data: [] }
   const clientCompletedCount = (clientCompletedBookings ?? []).length
 
@@ -57,7 +57,7 @@ export default async function ProviderHomePage() {
         </div>
         <div className="flex items-end justify-end flex-shrink-0" style={{ width: 100 }}>
           <Image
-            src="/icons/PROVEEDOR-creado.svg"
+            src="/icons/proveedor-creado.svg"
             alt="Proveedor"
             width={100}
             height={100}
