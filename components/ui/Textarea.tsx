@@ -16,7 +16,7 @@ export default function Textarea({ label, error, hint, className = '', ...props 
       )}
       <textarea
         {...props}
-        className={`w-full rounded-xl px-4 py-3 text-sm resize-none focus:outline-none ${className}`}
+        className={`w-full rounded-xl px-4 py-3 text-[16px] resize-none focus:outline-none ${className}`}
         style={{
           backgroundColor: 'var(--bg-body)',
           color: 'var(--text-dark)',

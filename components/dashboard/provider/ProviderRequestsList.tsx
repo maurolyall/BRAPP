@@ -77,7 +77,7 @@ export default function ProviderRequestsList({ requests, categories }: Props) {
             border: '1.5px solid #e5e7eb',
             borderRadius: 16,
             padding: '12px 40px 12px 16px',
-            fontSize: 14,
+            fontSize: 16,
             width: '100%',
             appearance: 'none',
             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,

@@ -141,7 +141,7 @@ export default function OfferForm({ bookingId, providerId, existingOffer }: Prop
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="0"
-            className="w-full pl-8 pr-4 py-3 rounded-2xl text-sm border outline-none"
+            className="w-full pl-8 pr-4 py-3 rounded-2xl text-[16px] border outline-none"
             style={{ borderColor: '#e0e0e0', backgroundColor: 'var(--bg-cards)', color: 'var(--text-dark)' }}
           />
         </div>

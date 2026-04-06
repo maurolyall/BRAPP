@@ -120,7 +120,7 @@ export default function BookingRequestForm({ userId, categoryId, defaultAddress 
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Agrega una descripción a tu solicitud."
           rows={3}
-          className="w-full px-4 py-3 rounded-2xl text-sm border outline-none resize-none"
+          className="w-full px-4 py-3 rounded-2xl text-[16px] border outline-none resize-none"
           style={{ borderColor: '#e0e0e0', backgroundColor: 'var(--bg-cards)', color: 'var(--text-dark)' }}
         />
       </div>
@@ -254,7 +254,7 @@ export default function BookingRequestForm({ userId, categoryId, defaultAddress 
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Ingresá tu dirección"
-          className="w-full px-4 py-3 rounded-2xl text-sm border outline-none"
+          className="w-full px-4 py-3 rounded-2xl text-[16px] border outline-none"
           style={{ borderColor: '#e0e0e0', backgroundColor: 'var(--bg-cards)', color: 'var(--text-dark)' }}
         />
       </div>

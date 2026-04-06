@@ -111,7 +111,7 @@ export default function ServiceConfigForm({ providerId, categoryId, categoryName
             placeholder="30000"
             min={30000}
             step={1000}
-            className="w-full rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none"
+            className="w-full rounded-xl pl-8 pr-4 py-3 text-[16px] focus:outline-none"
             style={{
               backgroundColor: 'var(--bg-body)',
               color: 'var(--text-dark)',

@@ -34,7 +34,7 @@ export default function ServiceCategoryGrid({ categories }: Props) {
         placeholder="Buscar servicio..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-4 py-3 rounded-full text-sm border outline-none"
+        className="w-full px-4 py-3 rounded-full text-[16px] border outline-none"
         style={{ borderColor: '#e0e0e0', backgroundColor: 'var(--bg-cards)', color: 'var(--text-dark)' }}
       />
 
