@@ -80,6 +80,8 @@
 
   .input-base {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 0.75rem 1.25rem;
     border-radius: 9999px;
     border: 1.5px solid #e5e7eb;
@@ -89,6 +91,7 @@
     font-size: 0.95rem;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     outline: none;
+    min-width: 0;
   }
 
   .input-base:focus {
@@ -103,6 +106,10 @@
 
   input[type="date"].input-base {
     color: var(--text-muted);
+    min-height: 2.75rem;
+    display: block;
+    -webkit-appearance: none;
+    appearance: none;
   }
 
   input[type="date"].input-base:valid {

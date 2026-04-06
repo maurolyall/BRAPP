@@ -100,20 +100,24 @@ export default function ClientProfileForm({ profile }: Props) {
           onChange={(e) => setAddress(e.target.value)}
         />
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Piso / Depto"
-            type="text"
-            placeholder="Ej: 3B"
-            value={floorApt}
-            onChange={(e) => setFloorApt(e.target.value)}
-          />
-          <Input
-            label="Lote"
-            type="text"
-            placeholder="Ej: 12"
-            value={lot}
-            onChange={(e) => setLot(e.target.value)}
-          />
+          <div className="min-w-0">
+            <Input
+              label="Piso / Depto"
+              type="text"
+              placeholder="Ej: 3B"
+              value={floorApt}
+              onChange={(e) => setFloorApt(e.target.value)}
+            />
+          </div>
+          <div className="min-w-0">
+            <Input
+              label="Lote"
+              type="text"
+              placeholder="Ej: 12"
+              value={lot}
+              onChange={(e) => setLot(e.target.value)}
+            />
+          </div>
         </div>
 
         <button
