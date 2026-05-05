@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabaseServer'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ACTIVE_STATUSES, DATE_LABEL, ROADMAP_STEPS, STATUS_LABEL } from '@/lib/bookingConstants'
+import AdSlider from '@/components/dashboard/AdSlider'
 
 export default async function ClientHomePage() {
   const supabase = await createServerClient()
@@ -33,6 +34,7 @@ export default async function ClientHomePage() {
       <p className="text-xl font-bold animate-fade-in" style={{ color: 'var(--text-dark)' }}>
         Hola, {firstName} 👋
       </p>
+      <AdSlider />
       {booking ? (
         <>
           <h2 className="text-base font-bold animate-fade-in" style={{ color: 'var(--text-dark)', animationDelay: '60ms' }}>Servicio actual</h2>

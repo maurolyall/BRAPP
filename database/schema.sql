@@ -208,6 +208,58 @@ create policy "Receiver can mark as read"
 alter publication supabase_realtime add table messages;
 
 -- ============================================================
+-- ADVERTISEMENTS (Publicidades para el slider)
+-- ============================================================
+create table if not exists advertisements (
+  id          uuid        primary key default uuid_generate_v4(),
+  title       text        not null,
+  image_url   text        not null,
+  link_url    text,
+  target      text        not null default 'client' check (target in ('client', 'provider')),
+  sort_order  integer     not null default 0,
+  active      boolean     not null default true,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table advertisements enable row level security;
+
+create policy "Anyone can read active advertisements"
+  on advertisements for select
+  using (active = true);
+
+create policy "Admins can manage advertisements"
+  on advertisements for all
+  using (
+    exists (
+      select 1 from profiles where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Storage bucket for advertisements
+insert into storage.buckets (id, name, public)
+values ('advertisements', 'advertisements', true)
+on conflict (id) do nothing;
+
+create policy "Anyone can view advertisements images"
+  on storage.objects for select
+  using (bucket_id = 'advertisements');
+
+create policy "Admins can upload advertisements images"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'advertisements' and
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Admins can delete advertisements images"
+  on storage.objects for delete
+  using (
+    bucket_id = 'advertisements' and
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- ============================================================
 -- INDEXES
 -- ============================================================
 create index if not exists idx_provider_categories_provider_id  on provider_categories(provider_id);
@@ -218,3 +270,4 @@ create index if not exists idx_bookings_provider_id             on bookings(prov
 create index if not exists idx_messages_sender_id               on messages(sender_id);
 create index if not exists idx_messages_receiver_id             on messages(receiver_id);
 create index if not exists idx_messages_created_at              on messages(created_at desc);
+create index if not exists idx_advertisements_sort_order        on advertisements(sort_order);

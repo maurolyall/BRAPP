@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabaseServer'
 import Link from 'next/link'
 import Image from 'next/image'
 import { DATE_LABEL } from '@/lib/bookingConstants'
+import AdSlider from '@/components/dashboard/AdSlider'
 
 export default async function ProviderHomePage() {
   const supabase = await createServerClient()
@@ -44,6 +45,7 @@ export default async function ProviderHomePage() {
       <p className="text-xl font-bold animate-fade-in" style={{ color: 'var(--text-dark)' }}>
         Hola, {firstName} 👋
       </p>
+      <AdSlider target="provider" />
 
       {/* Promo banner */}
       <div className="dash-card overflow-hidden flex items-stretch animate-fade-in" style={{ minHeight: 120, animationDelay: '60ms' }}>

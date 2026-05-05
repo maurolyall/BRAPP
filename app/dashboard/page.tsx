@@ -11,7 +11,9 @@ export default async function DashboardPage() {
     .eq('id', user!.id)
     .single()
 
-  if (profile?.role === 'provider') {
+  if (profile?.role === 'admin') {
+    redirect('/admin')
+  } else if (profile?.role === 'provider') {
     redirect('/dashboard/provider')
   } else {
     redirect('/dashboard/client')
