@@ -16,7 +16,7 @@ export default function BookingsByMonthChart({ data }: Props) {
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#6c757d' }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fontSize: 12, fill: '#6c757d' }} axisLine={false} tickLine={false} allowDecimals={false} />
-        <Tooltip formatter={(value: number) => [`${value} bookings`, '']} />
+        <Tooltip formatter={(value) => [`${Number(value)} bookings`, '']} />
         <Line type="monotone" dataKey="bookings" stroke="#E60611" strokeWidth={2.5} dot={{ fill: '#E60611', r: 4 }} activeDot={{ r: 6 }} />
       </LineChart>
     </ResponsiveContainer>

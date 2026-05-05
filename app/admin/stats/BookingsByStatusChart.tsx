@@ -18,7 +18,7 @@ export default function BookingsByStatusChart({ data }: Props) {
             <Cell key={entry.name} fill={entry.color} />
           ))}
         </Pie>
-        <Tooltip formatter={(value: number) => [`${value} bookings`, '']} />
+        <Tooltip formatter={(value) => [`${Number(value)} bookings`, '']} />
         <Legend iconType="circle" iconSize={7} formatter={(value) => <span style={{ fontSize: 10, color: '#6c757d' }}>{value}</span>} />
       </PieChart>
     </ResponsiveContainer>

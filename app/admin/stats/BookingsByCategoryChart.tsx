@@ -16,7 +16,7 @@ export default function BookingsByCategoryChart({ data }: Props) {
       <BarChart data={data} barSize={32}>
         <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6c757d' }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fontSize: 12, fill: '#6c757d' }} axisLine={false} tickLine={false} allowDecimals={false} />
-        <Tooltip cursor={{ fill: '#f3f3f3' }} formatter={(value: number) => [`${value} bookings`, '']} />
+        <Tooltip cursor={{ fill: '#f3f3f3' }} formatter={(value) => [`${Number(value)} bookings`, '']} />
         <Bar dataKey="value" radius={[6, 6, 0, 0]}>
           {data.map((_, i) => (
             <Cell key={i} fill={COLORS[i % COLORS.length]} />
