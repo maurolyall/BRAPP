@@ -156,7 +156,7 @@ export default function StoryForm({ onCreated }: StoryFormProps) {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ej: Roberto Zanata – Plomero matriculado"
+                  placeholder="Título"
                   className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none transition-colors"
                   style={{ borderColor: '#e5e7eb', fontSize: 16 }}
                   required

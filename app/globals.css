@@ -15,6 +15,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: #e0e0e0;
     color: var(--text-dark);
@@ -114,5 +118,115 @@
 
   input[type="date"].input-base:valid {
     color: var(--text-dark);
+  }
+
+  /* ── Docs page ────────────────────────────────── */
+  .docs-h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 2rem 0 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary-red);
+    scroll-margin-top: 1.5rem;
+  }
+  .docs-h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 1.75rem 0 0.5rem;
+    scroll-margin-top: 1.5rem;
+  }
+  .docs-h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 1.25rem 0 0.4rem;
+    scroll-margin-top: 1.5rem;
+  }
+  .docs-h4 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin: 1rem 0 0.3rem;
+    scroll-margin-top: 1.5rem;
+  }
+  .docs-p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin: 0.5rem 0;
+  }
+  .docs-ul, .docs-ol {
+    padding-left: 1.4rem;
+    margin: 0.5rem 0;
+  }
+  .docs-li {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin: 0.2rem 0;
+  }
+  .docs-strong {
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+  .docs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .docs-th {
+    text-align: left;
+    font-weight: 700;
+    color: var(--text-dark);
+    background-color: #f8f8f8;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #e5e7eb;
+  }
+  .docs-td {
+    padding: 0.55rem 0.9rem;
+    border: 1px solid #e5e7eb;
+    color: var(--text-muted);
+    vertical-align: top;
+  }
+  .docs-tr:hover .docs-td {
+    background-color: #fafafa;
+  }
+  .docs-pre {
+    background-color: #f4f4f5;
+    border-radius: 0.75rem;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    border: 1px solid #e5e7eb;
+  }
+  .docs-code-block {
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    color: var(--text-dark);
+    white-space: pre;
+  }
+  .docs-code-inline {
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    background-color: #f0f0f0;
+    color: var(--primary-red);
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+  }
+  .docs-blockquote {
+    border-left: 3px solid var(--primary-red);
+    padding: 0.5rem 1rem;
+    margin: 0.75rem 0;
+    background-color: #fff8f8;
+    border-radius: 0 0.5rem 0.5rem 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .docs-hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 2rem 0;
   }
 }
