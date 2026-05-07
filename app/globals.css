@@ -16,7 +16,7 @@
 
 @layer base {
   body {
-    background-color: var(--bg-body);
+    background-color: #e0e0e0;
     color: var(--text-dark);
     font-family: 'Comfortaa', system-ui, -apple-system, sans-serif;
   }

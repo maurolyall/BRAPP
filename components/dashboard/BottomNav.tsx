@@ -109,9 +109,10 @@ export default function BottomNav({ role }: BottomNavProps) {
     <>
       {role !== 'provider' && (
         <button
-          className="fixed z-50 right-6 flex items-center justify-center rounded-full bg-white"
+          className="fixed z-50 flex items-center justify-center rounded-full bg-white"
           style={{
             bottom: 'calc(1rem + 72px + 12px)',
+            right: 'max(1.5rem, calc(50vw - 215px + 1.5rem))',
             width: 52,
             height: 52,
             boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
@@ -133,8 +134,10 @@ export default function BottomNav({ role }: BottomNavProps) {
         </button>
       )}
     <nav
-      className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-around px-2 py-3 rounded-3xl"
+      className="fixed bottom-4 z-50 flex items-center justify-around px-2 py-3 rounded-3xl"
       style={{
+        left: 'max(1rem, calc(50vw - 215px + 1rem))',
+        right: 'max(1rem, calc(50vw - 215px + 1rem))',
         backgroundColor: 'rgba(255, 255, 255, 0.85)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',

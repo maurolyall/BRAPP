@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import MobileViewport from '@/components/layout/MobileViewport'
 
 export const metadata: Metadata = {
   title: 'Botón Rojo',
@@ -14,7 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <MobileViewport>{children}</MobileViewport>
+      </body>
     </html>
   )
 }
