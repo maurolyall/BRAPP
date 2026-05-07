@@ -31,7 +31,7 @@ export default async function DashboardLayout({
         <div className="flex-1 px-4 pt-8 pb-40">
           {children}
         </div>
-        <BottomNav role={role} />
+        <BottomNav role={role} userId={user.id} />
       </main>
     </ToastProvider>
   )

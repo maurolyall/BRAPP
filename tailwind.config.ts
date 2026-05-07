@@ -25,6 +25,10 @@ const config: Config = {
         'fade-in': 'fade-in 0.3s ease-out both',
         'scale-in': 'scale-in 0.4s ease-out both',
       },
+      zIndex: {
+        '60': '60',
+        '70': '70',
+      },
       colors: {
         primary: 'var(--primary-red)',
         background: 'var(--bg-body)',
