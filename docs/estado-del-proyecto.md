@@ -22,6 +22,7 @@
 14. [Componentes UI reutilizables](#14-componentes-ui-reutilizables)
 15. [API Routes y Server Actions](#15-api-routes-y-server-actions)
 16. [Pendiente / Próximos pasos](#16-pendiente--próximos-pasos)
+17. [App Nativa (React Native) - Plan de Acción](#17-app-nativa-react-native---plan-de-acción)
 
 ---
 
@@ -1083,3 +1084,39 @@ Ubicados en `components/ui/`:
 ---
 
 *Última actualización: Mayo 2026*
+---
+
+## 17. App Nativa (React Native) - Plan de Acción
+
+Este apartado detalla la estrategia para transformar la experiencia de **Botón Rojo** en una aplicación nativa real, optimizando la confiabilidad y el acceso a hardware.
+
+### 17.1. ¿Por qué React Native + Expo?
+Hemos decidido utilizar **React Native con Expo** porque nos permite mantener un solo código base para iOS y Android, con un rendimiento nativo y acceso simplificado a APIs críticas como el GPS y las notificaciones en segundo plano.
+
+### 17.2. Funcionamiento y Características "Botón Rojo"
+Una app nativa nos permite implementar funciones de seguridad que la web no alcanza:
+-   **Alerta en Segundo Plano:** El usuario puede disparar la alerta aunque la app no esté abierta en pantalla.
+-   **Uso de Botones Físicos:** Posibilidad de configurar disparadores mediante combinaciones de botones de volumen o encendido (especialmente en Android).
+-   **Geolocalización Persistente:** Envío de la ubicación exacta en tiempo real durante la emergencia, incluso si el móvil entra en modo ahorro de batería.
+-   **Notificaciones Críticas:** Alertas que ignoran el modo "No molestar" para casos de pánico confirmados.
+
+### 17.3. Lo que vamos a Reutilizar (El "Avance")
+No empezamos de cero. El 70% de la inteligencia del sistema ya está construida:
+-   **Supabase (Backend):** Toda la base de datos de perfiles, categorías y el sistema de chat funciona exactamente igual.
+-   **Lógica de TypeScript:** Los tipos de datos, validaciones y servicios de autenticación son 100% portables.
+-   **Flujo de Negocio:** El proceso de "Solicitud -> Oferta -> Confirmación" ya está validado y solo requiere un cambio de "piel".
+-   **Tokens de Diseño:** Usaremos **NativeWind** para aplicar los mismos colores y espaciados de Tailwind CSS en la app nativa.
+
+### 17.4. Proceso de Desarrollo (Fases)
+1.  **Fase 1 (Semana 1):** Configuración de Expo, migración de Auth/Supabase y desarrollo del núcleo del **Botón Rojo** (GPS y disparadores).
+2.  **Fase 2 (Semana 2):** Migración de los paneles de Cliente/Proveedor (UI) y pruebas intensivas de confiabilidad antes del envío a tiendas.
+
+### 17.5. Tiempos Estimados
+*   **Desarrollo (MVP Funcional):** 2 semanas (gracias a la alta reutilización del código actual).
+*   **Proceso de Revisión (Stores):**
+    *   **Google Play:** 3-7 días (promedio).
+    *   **App Store:** 7-15 días (según revisión actual).
+*   **Total estimado:** ~4 semanas para estar en manos de los usuarios finales (incluyendo revisión).
+
+> [!TIP]
+> Al ser una aplicación de seguridad, el foco principal durante estas semanas será la **resiliencia**: asegurar que el mensaje de alerta llegue al servidor de Supabase pase lo que pase con la conexión del usuario.
