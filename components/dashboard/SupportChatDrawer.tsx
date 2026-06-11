@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, KeyboardEvent } from 'react'
 import { createClient } from '@/lib/supabaseClient'
+import ReactMarkdown from 'react-markdown'
 
 interface SupportMessage {
   id: string
@@ -9,6 +10,7 @@ interface SupportMessage {
   sender_id: string
   content: string
   created_at: string
+  is_bot: boolean
 }
 
 interface Props {
@@ -23,7 +25,11 @@ function MessageTime({ iso }: { iso: string }) {
     setLabel(new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))
   }, [iso])
   if (!label) return null
-  return <span className="text-xs" style={{ color: 'var(--text-muted)', fontSize: 10 }}>{label}</span>
+  return (
+    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+      {label}
+    </span>
+  )
 }
 
 export default function SupportChatDrawer({ open, onClose, currentUserId }: Props) {
@@ -39,7 +45,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
 
     supabase
       .from('support_messages')
-      .select('id, user_id, sender_id, content, created_at')
+      .select('id, user_id, sender_id, content, created_at, is_bot')
       .eq('user_id', currentUserId)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
@@ -63,7 +69,18 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
         },
         (payload) => {
           const newMsg = payload.new as SupportMessage
-          setMessages((prev) => prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg])
+          setMessages((prev) => {
+            // replace optimistic entry if same content sent by user, otherwise dedup by id
+            const optimisticIdx = prev.findIndex(
+              (m) => m.id.length < 36 || (!m.is_bot && m.content === newMsg.content && !prev.some((x) => x.id === newMsg.id))
+            )
+            if (optimisticIdx !== -1 && !newMsg.is_bot) {
+              const next = [...prev]
+              next[optimisticIdx] = newMsg
+              return next
+            }
+            return prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
+          })
         }
       )
       .subscribe()
@@ -81,28 +98,31 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
     setSending(true)
     setInput('')
 
+    const optimisticId = crypto.randomUUID()
     const optimistic: SupportMessage = {
-      id: crypto.randomUUID(),
+      id: optimisticId,
       user_id: currentUserId,
       sender_id: currentUserId,
       content,
       created_at: new Date().toISOString(),
+      is_bot: false,
     }
     setMessages((prev) => [...prev, optimistic])
 
-    const { data, error } = await supabase.from('support_messages').insert({
-      user_id: currentUserId,
-      sender_id: currentUserId,
-      content,
-    }).select('id').single()
+    const res = await fetch('/api/support/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    })
 
-    if (error) {
-      console.error('support_messages insert error:', error)
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+    if (res.ok) {
+      const { id: realId } = await res.json()
+      // replace optimistic entry with real id so realtime dedup works
+      setMessages((prev) => prev.map((m) => m.id === optimisticId ? { ...m, id: realId } : m))
+    } else {
+      console.error('support message error', await res.text())
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
       setInput(content)
-    } else if (data) {
-      // Replace optimistic entry with real id so realtime dedup works
-      setMessages((prev) => prev.map((m) => m.id === optimistic.id ? { ...m, id: data.id } : m))
     }
 
     setSending(false)
@@ -121,7 +141,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
       <div
         className="fixed inset-0 z-60 transition-opacity duration-300"
         style={{
-          backgroundColor: 'rgba(0,0,0,0.35)',
+          backgroundColor: 'rgba(0,0,0,0.4)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
         }}
@@ -130,23 +150,27 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
 
       {/* Drawer */}
       <div
-        className="fixed z-70 flex flex-col rounded-t-3xl"
+        className="fixed z-70 flex flex-col rounded-t-3xl overflow-hidden"
         style={{
           left: 'max(0px, calc(50vw - 215px))',
           right: 'max(0px, calc(50vw - 215px))',
           bottom: 0,
-          height: '75vh',
+          height: '78vh',
           backgroundColor: 'var(--bg-body)',
-          boxShadow: '0 -8px 32px rgba(0,0,0,0.18)',
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.22)',
           transform: open ? 'translateY(0)' : 'translateY(100%)',
           transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
+        {/* drag handle */}
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: '#d0d0d0' }} />
+        </div>
 
         {/* Header */}
         <div
-          className="flex items-center gap-3 mx-4 mt-4 mb-3 px-3 py-3 rounded-2xl flex-shrink-0"
-          style={{ backgroundColor: 'var(--bg-cards)', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+          className="flex items-center gap-3 mx-4 mt-2 mb-3 px-3 py-3 rounded-2xl flex-shrink-0"
+          style={{ backgroundColor: 'var(--bg-cards)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
         >
           <div
             className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
@@ -158,7 +182,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           </div>
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-sm font-bold" style={{ color: 'var(--text-dark)' }}>Soporte Botón Rojo</span>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Te respondemos a la brevedad</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Asistente virtual · siempre disponible</span>
           </div>
           <button
             onClick={onClose}
@@ -173,7 +197,13 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2 px-4 pb-2">
+        <div className="flex-1 overflow-y-auto flex flex-col gap-2 px-4 pb-3">
+          {!loaded && (
+            <div className="flex justify-center items-center h-full">
+              <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary-red)', borderTopColor: 'transparent' }} />
+            </div>
+          )}
+
           {loaded && messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-2">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
@@ -185,21 +215,37 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
             </div>
           )}
 
-          {messages.map((msg) => {
-            const isOwn = msg.sender_id === currentUserId
+          {loaded && messages.map((msg) => {
+            const isOwn = !msg.is_bot
             return (
               <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className="flex flex-col gap-0.5 max-w-[75%]" style={{ alignItems: isOwn ? 'flex-end' : 'flex-start' }}>
+                <div
+                  className="flex flex-col gap-1"
+                  style={{ alignItems: isOwn ? 'flex-end' : 'flex-start', maxWidth: '82%' }}
+                >
                   <div
-                    className="px-3 py-2 text-sm"
+                    className="px-3 py-2.5 text-sm leading-relaxed"
                     style={{
                       backgroundColor: isOwn ? 'var(--primary-red)' : 'var(--bg-cards)',
                       color: isOwn ? '#fff' : 'var(--text-dark)',
                       borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                      boxShadow: isOwn ? 'none' : '0 2px 8px rgba(0,0,0,0.06)',
+                      boxShadow: isOwn ? 'none' : '0 2px 8px rgba(0,0,0,0.07)',
                     }}
                   >
-                    {msg.content}
+                    {msg.is_bot ? (
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+                          ul: ({ children }) => <ul className="mt-1 ml-4 space-y-1 list-disc">{children}</ul>,
+                          li: ({ children }) => <li className="leading-snug">{children}</li>,
+                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                   <MessageTime iso={msg.created_at} />
                 </div>
@@ -211,8 +257,12 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
 
         {/* Input */}
         <div
-          className="flex items-center gap-2 px-4 pt-3 pb-6 flex-shrink-0"
-          style={{ borderTop: '1px solid var(--bg-body)' }}
+          className="flex items-center gap-2 px-4 pt-3 flex-shrink-0"
+          style={{
+            borderTop: '1px solid #ebebeb',
+            paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))',
+            backgroundColor: 'var(--bg-body)',
+          }}
         >
           <input
             type="text"
@@ -232,18 +282,22 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           <button
             onClick={sendMessage}
             disabled={!input.trim() || sending}
-            className="flex-shrink-0 flex items-center justify-center rounded-full"
+            className="flex-shrink-0 flex items-center justify-center rounded-full transition-opacity"
             style={{
-              width: 40,
-              height: 40,
-              backgroundColor: input.trim() ? 'var(--primary-red)' : 'var(--color-inactive)',
-              transition: 'background-color 0.15s',
+              width: 42,
+              height: 42,
+              backgroundColor: 'var(--primary-red)',
+              opacity: !input.trim() || sending ? 0.4 : 1,
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
+            {sending ? (
+              <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
