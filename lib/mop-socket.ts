@@ -22,6 +22,8 @@ export function getLastEvents() {
   return global._mopLastEvents ?? []
 }
 
+const recentBotReplies = new Map<string, number>()
+
 async function handleOutbound(evt: OutboundEvent) {
   if (!global._mopLastEvents) global._mopLastEvents = []
   global._mopLastEvents = [evt, ...global._mopLastEvents].slice(0, 10)
@@ -47,6 +49,20 @@ async function handleOutbound(evt: OutboundEvent) {
   if (!text) {
     console.warn('[mop] outbound missing text, skipping insert')
     return
+  }
+
+  const dedupKey = `${userId}:${text}`
+  const now = Date.now()
+  const lastTime = recentBotReplies.get(dedupKey)
+  if (lastTime && now - lastTime < 5000) {
+    console.log('[mop] duplicate bot reply skipped for user', userId)
+    return
+  }
+  recentBotReplies.set(dedupKey, now)
+  if (recentBotReplies.size > 200) {
+    for (const [key, time] of recentBotReplies) {
+      if (now - time > 30000) recentBotReplies.delete(key)
+    }
   }
 
   const admin = createAdminClient()

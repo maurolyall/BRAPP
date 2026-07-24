@@ -3,6 +3,15 @@ import { createServerClient } from '@/lib/supabaseServer'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { getMopSocket } from '@/lib/mop-socket'
 
+function toE164(phone: string | null): string | null {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 15) return null
+  if (phone.startsWith('+')) return `+${digits}`
+  if (digits.startsWith('54')) return `+${digits}`
+  return `+54${digits}`
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -40,7 +49,7 @@ export async function POST(req: NextRequest) {
       externalUserId: user.id,
       user: {
         name: profile?.full_name ?? 'Usuario',
-        phone: profile?.phone ?? '+5400000000000',
+        phone: toE164(profile?.phone) ?? '+5400000000000',
       },
       text: content.trim(),
     },

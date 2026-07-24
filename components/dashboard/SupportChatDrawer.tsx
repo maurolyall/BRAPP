@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react'
 import { createClient } from '@/lib/supabaseClient'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface SupportMessage {
   id: string
@@ -39,6 +40,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
   const [loaded, setLoaded] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
+  const waitingForReply = loaded && messages.length > 0 && !messages[messages.length - 1].is_bot && !sending
 
   useEffect(() => {
     if (!open || loaded) return
@@ -234,11 +236,26 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
                   >
                     {msg.is_bot ? (
                       <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
                         components={{
                           p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
                           ul: ({ children }) => <ul className="mt-1 ml-4 space-y-1 list-disc">{children}</ul>,
+                          ol: ({ children }) => <ol className="mt-1 ml-4 space-y-1 list-decimal">{children}</ol>,
                           li: ({ children }) => <li className="leading-snug">{children}</li>,
                           strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                          code: ({ children, className }) => {
+                            const isBlock = className?.includes('language-')
+                            return isBlock ? (
+                              <code className="block bg-gray-100 rounded p-2 text-xs my-1 overflow-x-auto">{children}</code>
+                            ) : (
+                              <code className="bg-gray-100 rounded px-1 text-xs">{children}</code>
+                            )
+                          },
+                          a: ({ children, href }) => (
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--primary-red)' }}>{children}</a>
+                          ),
+                          br: () => <br />,
                         }}
                       >
                         {msg.content}
@@ -252,6 +269,27 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
               </div>
             )
           })}
+          {waitingForReply && (
+            <div className="flex justify-start">
+              <div
+                className="flex flex-col gap-1"
+                style={{ alignItems: 'flex-start', maxWidth: '82%' }}
+              >
+                <div
+                  className="px-3 py-3 flex items-center gap-1"
+                  style={{
+                    backgroundColor: 'var(--bg-cards)',
+                    borderRadius: '18px 18px 18px 4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                  }}
+                >
+                  <span className="typing-dot w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--text-muted)' }} />
+                  <span className="typing-dot w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--text-muted)' }} />
+                  <span className="typing-dot w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--text-muted)' }} />
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
