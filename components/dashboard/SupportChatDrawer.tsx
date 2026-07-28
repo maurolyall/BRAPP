@@ -1,9 +1,18 @@
 'use client'
 
-import { useEffect, useRef, useState, KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, KeyboardEvent, ChangeEvent } from 'react'
 import { createClient } from '@/lib/supabaseClient'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import {
+  ACCEPT_ATTR,
+  ALLOWED_MIME_TYPES,
+  MAX_ATTACHMENTS,
+  MAX_ATTACHMENT_BYTES,
+  MAX_TOTAL_BYTES,
+  SupportAttachment,
+  typeForMime,
+} from '@/lib/support-attachments'
 
 interface SupportMessage {
   id: string
@@ -12,12 +21,34 @@ interface SupportMessage {
   content: string
   created_at: string
   is_bot: boolean
+  attachments: SupportAttachment[] | null
+}
+
+interface PendingFile {
+  id: string
+  file: File
+  previewUrl: string
 }
 
 interface Props {
   open: boolean
   onClose: () => void
   currentUserId: string
+}
+
+const SELECT_COLUMNS = 'id, user_id, sender_id, content, created_at, is_bot, attachments'
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result)
+      // el contrato de MoP pide base64 crudo, sin el prefijo data:...;base64,
+      resolve(result.slice(result.indexOf(',') + 1))
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }
 
 function MessageTime({ iso }: { iso: string }) {
@@ -33,25 +64,77 @@ function MessageTime({ iso }: { iso: string }) {
   )
 }
 
+function FileIcon({ color }: { color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  )
+}
+
+function AttachmentList({ attachments, isOwn }: { attachments: SupportAttachment[]; isOwn: boolean }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {attachments.map((att, i) =>
+        att.type === 'image' ? (
+          <a key={`${att.url}-${i}`} href={att.url} target="_blank" rel="noopener noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={att.url}
+              alt={att.filename ?? 'Imagen adjunta'}
+              className="rounded-xl object-cover"
+              style={{ maxWidth: '100%', maxHeight: 220 }}
+            />
+          </a>
+        ) : (
+          <a
+            key={`${att.url}-${i}`}
+            href={att.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={att.filename}
+            className="flex items-center gap-2 rounded-xl px-2.5 py-2"
+            style={{
+              backgroundColor: isOwn ? 'rgba(255,255,255,0.18)' : 'var(--bg-body)',
+              color: isOwn ? '#fff' : 'var(--text-dark)',
+            }}
+          >
+            <FileIcon color={isOwn ? '#fff' : 'var(--primary-red)'} />
+            <span className="text-xs truncate" style={{ maxWidth: 180 }}>
+              {att.filename ?? 'Documento'}
+            </span>
+          </a>
+        )
+      )}
+    </div>
+  )
+}
+
 export default function SupportChatDrawer({ open, onClose, currentUserId }: Props) {
   const [messages, setMessages] = useState<SupportMessage[]>([])
   const [input, setInput] = useState('')
+  const [pending, setPending] = useState<PendingFile[]>([])
+  const [attachError, setAttachError] = useState('')
   const [sending, setSending] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const optimisticIds = useRef<Set<string>>(new Set())
   const supabase = createClient()
   const waitingForReply = loaded && messages.length > 0 && !messages[messages.length - 1].is_bot && !sending
+  const canSend = (input.trim().length > 0 || pending.length > 0) && !sending
 
   useEffect(() => {
     if (!open || loaded) return
 
     supabase
       .from('support_messages')
-      .select('id, user_id, sender_id, content, created_at, is_bot')
+      .select(SELECT_COLUMNS)
       .eq('user_id', currentUserId)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
-        setMessages(data ?? [])
+        setMessages((data as SupportMessage[]) ?? [])
         setLoaded(true)
       })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -72,16 +155,25 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
         (payload) => {
           const newMsg = payload.new as SupportMessage
           setMessages((prev) => {
-            // replace optimistic entry if same content sent by user, otherwise dedup by id
-            const optimisticIdx = prev.findIndex(
-              (m) => m.id.length < 36 || (!m.is_bot && m.content === newMsg.content && !prev.some((x) => x.id === newMsg.id))
-            )
-            if (optimisticIdx !== -1 && !newMsg.is_bot) {
-              const next = [...prev]
-              next[optimisticIdx] = newMsg
-              return next
+            if (prev.some((m) => m.id === newMsg.id)) return prev
+
+            // Si el POST todavía no respondió, reemplazamos la entrada optimista
+            // equivalente en vez de duplicar el mensaje.
+            if (!newMsg.is_bot) {
+              const idx = prev.findIndex(
+                (m) =>
+                  optimisticIds.current.has(m.id) &&
+                  m.content === newMsg.content &&
+                  (m.attachments?.length ?? 0) === (newMsg.attachments?.length ?? 0)
+              )
+              if (idx !== -1) {
+                optimisticIds.current.delete(prev[idx].id)
+                const next = [...prev]
+                next[idx] = newMsg
+                return next
+              }
             }
-            return prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
+            return [...prev, newMsg]
           })
         }
       )
@@ -92,15 +184,69 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, pending])
+
+  // Liberar los object URLs de las previsualizaciones al desmontar
+  const pendingRef = useRef<PendingFile[]>([])
+  pendingRef.current = pending
+  useEffect(() => {
+    return () => { pendingRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl)) }
+  }, [])
+
+  const handleFilesSelected = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length === 0) return
+
+    setAttachError('')
+    const accepted: PendingFile[] = []
+    let total = pending.reduce((sum, p) => sum + p.file.size, 0)
+
+    for (const file of files) {
+      if (!(file.type in ALLOWED_MIME_TYPES)) {
+        setAttachError('Solo podés adjuntar imágenes o PDFs')
+        continue
+      }
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        setAttachError(`"${file.name}" supera los ${Math.round(MAX_ATTACHMENT_BYTES / 1024 / 1024)} MB`)
+        continue
+      }
+      if (pending.length + accepted.length >= MAX_ATTACHMENTS) {
+        setAttachError(`Máximo ${MAX_ATTACHMENTS} archivos por mensaje`)
+        break
+      }
+      if (total + file.size > MAX_TOTAL_BYTES) {
+        setAttachError(`Los adjuntos no pueden superar los ${Math.round(MAX_TOTAL_BYTES / 1024 / 1024)} MB en total`)
+        break
+      }
+      total += file.size
+      accepted.push({ id: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) })
+    }
+
+    if (accepted.length > 0) setPending((prev) => [...prev, ...accepted])
+  }
+
+  const removePending = (id: string) => {
+    setPending((prev) => {
+      const target = prev.find((p) => p.id === id)
+      if (target) URL.revokeObjectURL(target.previewUrl)
+      return prev.filter((p) => p.id !== id)
+    })
+    setAttachError('')
+  }
 
   const sendMessage = async () => {
     const content = input.trim()
-    if (!content || sending) return
+    const files = pending
+    if ((!content && files.length === 0) || sending) return
+
     setSending(true)
     setInput('')
+    setPending([])
+    setAttachError('')
 
     const optimisticId = crypto.randomUUID()
+    optimisticIds.current.add(optimisticId)
     const optimistic: SupportMessage = {
       id: optimisticId,
       user_id: currentUserId,
@@ -108,23 +254,51 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
       content,
       created_at: new Date().toISOString(),
       is_bot: false,
+      attachments: files.length
+        ? files.map((f) => ({
+            type: typeForMime(f.file.type),
+            url: f.previewUrl,
+            mime: f.file.type,
+            filename: f.file.name,
+          }))
+        : null,
     }
     setMessages((prev) => [...prev, optimistic])
 
-    const res = await fetch('/api/support/message', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    })
+    try {
+      const attachments = await Promise.all(
+        files.map(async (f) => ({
+          type: typeForMime(f.file.type),
+          data: await fileToBase64(f.file),
+          mime: f.file.type,
+          filename: f.file.name,
+        }))
+      )
 
-    if (res.ok) {
-      const { id: realId } = await res.json()
-      // replace optimistic entry with real id so realtime dedup works
-      setMessages((prev) => prev.map((m) => m.id === optimisticId ? { ...m, id: realId } : m))
-    } else {
-      console.error('support message error', await res.text())
+      const res = await fetch('/api/support/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, ...(attachments.length > 0 && { attachments }) }),
+      })
+
+      if (!res.ok) throw new Error(await res.text())
+
+      const { message } = await res.json()
+      optimisticIds.current.delete(optimisticId)
+      files.forEach((f) => URL.revokeObjectURL(f.previewUrl))
+      // reemplazamos la entrada optimista por la fila real (ids y URLs definitivas)
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === message.id)) return prev.filter((m) => m.id !== optimisticId)
+        return prev.map((m) => (m.id === optimisticId ? (message as SupportMessage) : m))
+      })
+    } catch (err) {
+      console.error('support message error', err)
+      optimisticIds.current.delete(optimisticId)
+      files.forEach((f) => URL.revokeObjectURL(f.previewUrl))
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
       setInput(content)
+      setPending(files.map((f) => ({ ...f, previewUrl: URL.createObjectURL(f.file) })))
+      setAttachError('No pudimos enviar el mensaje. Probá de nuevo.')
     }
 
     setSending(false)
@@ -219,6 +393,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
 
           {loaded && messages.map((msg) => {
             const isOwn = !msg.is_bot
+            const attachments = msg.attachments ?? []
             return (
               <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                 <div
@@ -226,7 +401,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
                   style={{ alignItems: isOwn ? 'flex-end' : 'flex-start', maxWidth: '82%' }}
                 >
                   <div
-                    className="px-3 py-2.5 text-sm leading-relaxed"
+                    className="px-3 py-2.5 text-sm leading-relaxed flex flex-col gap-2"
                     style={{
                       backgroundColor: isOwn ? 'var(--primary-red)' : 'var(--bg-cards)',
                       color: isOwn ? '#fff' : 'var(--text-dark)',
@@ -234,7 +409,10 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
                       boxShadow: isOwn ? 'none' : '0 2px 8px rgba(0,0,0,0.07)',
                     }}
                   >
-                    {msg.is_bot ? (
+                    {attachments.length > 0 && (
+                      <AttachmentList attachments={attachments} isOwn={isOwn} />
+                    )}
+                    {msg.content && (msg.is_bot ? (
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -261,8 +439,8 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
                         {msg.content}
                       </ReactMarkdown>
                     ) : (
-                      msg.content
-                    )}
+                      <span>{msg.content}</span>
+                    ))}
                   </div>
                   <MessageTime iso={msg.created_at} />
                 </div>
@@ -293,6 +471,49 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           <div ref={bottomRef} />
         </div>
 
+        {/* Adjuntos pendientes */}
+        {(pending.length > 0 || attachError) && (
+          <div className="px-4 pb-2 flex-shrink-0">
+            {pending.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {pending.map((p) => (
+                  <div
+                    key={p.id}
+                    className="relative flex-shrink-0 rounded-xl overflow-hidden"
+                    style={{ width: 64, height: 64, backgroundColor: 'var(--bg-cards)', border: '1px solid #e0e0e0' }}
+                  >
+                    {p.file.type.startsWith('image/') ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.previewUrl} alt={p.file.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 px-1">
+                        <FileIcon color="var(--primary-red)" />
+                        <span className="text-[9px] truncate w-full text-center" style={{ color: 'var(--text-muted)' }}>
+                          {p.file.name}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => removePending(p.id)}
+                      className="absolute top-0.5 right-0.5 flex items-center justify-center rounded-full"
+                      style={{ width: 18, height: 18, backgroundColor: 'rgba(0,0,0,0.55)' }}
+                      aria-label="Quitar adjunto"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {attachError && (
+              <span className="text-[11px]" style={{ color: 'var(--primary-red)' }}>{attachError}</span>
+            )}
+          </div>
+        )}
+
         {/* Input */}
         <div
           className="flex items-center gap-2 px-4 pt-3 flex-shrink-0"
@@ -303,12 +524,37 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           }}
         >
           <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT_ATTR}
+            multiple
+            onChange={handleFilesSelected}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending}
+            className="flex-shrink-0 flex items-center justify-center rounded-full"
+            style={{
+              width: 42,
+              height: 42,
+              backgroundColor: 'var(--bg-cards)',
+              border: '1.5px solid #e0e0e0',
+              opacity: sending ? 0.4 : 1,
+            }}
+            aria-label="Adjuntar archivo"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+          </button>
+          <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Escribí tu consulta..."
-            className="flex-1 rounded-full px-4 py-2.5 outline-none"
+            className="flex-1 min-w-0 rounded-full px-4 py-2.5 outline-none"
             style={{
               fontSize: 16,
               backgroundColor: 'var(--bg-cards)',
@@ -319,13 +565,13 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || sending}
+            disabled={!canSend}
             className="flex-shrink-0 flex items-center justify-center rounded-full transition-opacity"
             style={{
               width: 42,
               height: 42,
               backgroundColor: 'var(--primary-red)',
-              opacity: !input.trim() || sending ? 0.4 : 1,
+              opacity: canSend ? 1 : 0.4,
             }}
           >
             {sending ? (

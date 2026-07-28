@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { parseIncomingAttachments } from '@/lib/support-attachments'
 
 declare global {
   // eslint-disable-next-line no-var
@@ -8,13 +9,17 @@ declare global {
   var _mopLastEvents: unknown[]
 }
 
+type MopBlock = { type: string; text?: string; attachments?: unknown }
+
 type OutboundEvent = {
   schema: string
+  eventId?: string
   payload: {
     externalUserId: string
     text?: string
-    messages?: Array<{ type: string; text?: string }>
-    blocks?: Array<{ type: string; text?: string }>
+    attachments?: unknown
+    messages?: MopBlock[]
+    blocks?: MopBlock[]
   }
 }
 
@@ -23,6 +28,15 @@ export function getLastEvents() {
 }
 
 const recentBotReplies = new Map<string, number>()
+const seenEventIds = new Map<string, number>()
+
+function prune(map: Map<string, number>, ttl: number) {
+  if (map.size <= 200) return
+  const now = Date.now()
+  for (const [key, time] of map) {
+    if (now - time > ttl) map.delete(key)
+  }
+}
 
 async function handleOutbound(evt: OutboundEvent) {
   if (!global._mopLastEvents) global._mopLastEvents = []
@@ -38,31 +52,47 @@ async function handleOutbound(evt: OutboundEvent) {
     evt.payload.blocks?.find((b) => b.type === 'text')?.text ??
     ''
 
+  // Los adjuntos llegan como URLs públicas — normalmente en payload.attachments,
+  // pero toleramos la variante anidada en messages[]/blocks[].
+  const attachments = [
+    ...parseIncomingAttachments(evt.payload.attachments),
+    ...(evt.payload.messages ?? []).flatMap((m) => parseIncomingAttachments(m.attachments)),
+    ...(evt.payload.blocks ?? []).flatMap((b) => parseIncomingAttachments(b.attachments)),
+  ]
+
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!userId || !uuidRegex.test(userId)) {
     console.warn('[mop] outbound ignored — externalUserId is not a uuid:', userId)
     return
   }
 
-  console.log('[mop] outbound → userId:', userId, '| text:', text)
+  console.log('[mop] outbound → userId:', userId, '| text:', text, '| adjuntos:', attachments.length)
 
-  if (!text) {
-    console.warn('[mop] outbound missing text, skipping insert')
+  if (!text && attachments.length === 0) {
+    console.warn('[mop] outbound sin texto ni adjuntos, skipping insert')
     return
   }
 
-  const dedupKey = `${userId}:${text}`
   const now = Date.now()
-  const lastTime = recentBotReplies.get(dedupKey)
-  if (lastTime && now - lastTime < 5000) {
-    console.log('[mop] duplicate bot reply skipped for user', userId)
-    return
-  }
-  recentBotReplies.set(dedupKey, now)
-  if (recentBotReplies.size > 200) {
-    for (const [key, time] of recentBotReplies) {
-      if (now - time > 30000) recentBotReplies.delete(key)
+
+  // Dedupe primario: eventId (el server reenvía el mismo evento en reconexiones).
+  if (evt.eventId) {
+    if (seenEventIds.has(evt.eventId)) {
+      console.log('[mop] evento duplicado ignorado', evt.eventId)
+      return
     }
+    seenEventIds.set(evt.eventId, now)
+    prune(seenEventIds, 10 * 60 * 1000)
+  } else {
+    // Fallback para eventos sin eventId: mismo contenido en una ventana corta.
+    const dedupKey = `${userId}:${text}:${attachments.map((a) => a.url).join(',')}`
+    const lastTime = recentBotReplies.get(dedupKey)
+    if (lastTime && now - lastTime < 5000) {
+      console.log('[mop] duplicate bot reply skipped for user', userId)
+      return
+    }
+    recentBotReplies.set(dedupKey, now)
+    prune(recentBotReplies, 30000)
   }
 
   const admin = createAdminClient()
@@ -71,9 +101,14 @@ async function handleOutbound(evt: OutboundEvent) {
     sender_id: userId,
     content: text,
     is_bot: true,
+    attachments: attachments.length > 0 ? attachments : null,
+    mop_event_id: evt.eventId ?? null,
   })
 
-  if (error) console.error('[mop] error saving bot reply', error.message)
+  // 23505 = unique_violation sobre mop_event_id: el evento ya se guardó
+  // (p. ej. tras un reinicio del proceso, con el cache en memoria vacío).
+  if (error?.code === '23505') console.log('[mop] evento ya persistido', evt.eventId)
+  else if (error) console.error('[mop] error saving bot reply', error.message)
   else console.log('[mop] bot reply saved for user', userId)
 }
 
