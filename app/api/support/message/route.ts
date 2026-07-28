@@ -11,6 +11,7 @@ import {
 import { normalizeArPhone } from '@/lib/phone'
 
 const BUCKET = 'support-attachments'
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(req: NextRequest) {
   const supabase = await createServerClient()
@@ -19,6 +20,13 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const content: string = typeof body?.content === 'string' ? body.content.trim() : ''
+  // Hilo al que pertenece el mensaje. Lo genera el cliente al abrir el chat
+  // desde un servicio; las respuestas del bot se cuelgan del último hilo del
+  // usuario (ver lib/mop-socket.ts).
+  const conversationId: string | null =
+    typeof body?.conversationId === 'string' && UUID_RE.test(body.conversationId)
+      ? body.conversationId
+      : null
 
   const validation = validateUploads(body?.attachments)
   if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: 400 })
@@ -67,8 +75,9 @@ export async function POST(req: NextRequest) {
       content,
       is_bot: false,
       attachments: stored.length > 0 ? stored : null,
+      conversation_id: conversationId,
     })
-    .select('id, user_id, sender_id, content, created_at, is_bot, attachments')
+    .select('id, user_id, sender_id, content, created_at, is_bot, attachments, conversation_id')
     .single()
 
   if (insertError) {

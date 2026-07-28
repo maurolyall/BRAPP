@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState, KeyboardEvent, ChangeEvent } from 'react'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabaseClient'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { normalizeArPhone, PHONE_ERROR, PHONE_PLACEHOLDER } from '@/lib/phone'
 import {
   ACCEPT_ATTR,
   ALLOWED_MIME_TYPES,
@@ -23,6 +23,7 @@ interface SupportMessage {
   created_at: string
   is_bot: boolean
   attachments: SupportAttachment[] | null
+  conversation_id: string | null
 }
 
 interface PendingFile {
@@ -32,12 +33,23 @@ interface PendingFile {
 }
 
 interface Props {
-  open: boolean
-  onClose: () => void
   currentUserId: string
+  /**
+   * Hilo a mostrar. Con id, la vista arranca vacía y solo muestra los mensajes
+   * de esta conversación: entrar a un servicio no trae el historial viejo.
+   * Sin id se muestra todo el hilo del usuario.
+   */
+  conversationId?: string
+  /** Texto inicial de la conversación. */
+  prefill?: string
+  /** Cambia para reaplicar el mismo prefill. */
+  prefillNonce?: number
+  /** Si es true, el prefill se envía solo en vez de quedar en la barra. */
+  autoSend?: boolean
 }
 
-const SELECT_COLUMNS = 'id, user_id, sender_id, content, created_at, is_bot, attachments'
+const SELECT_COLUMNS =
+  'id, user_id, sender_id, content, created_at, is_bot, attachments, conversation_id'
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -121,36 +133,95 @@ function AttachmentList({
   )
 }
 
-export default function SupportChatDrawer({ open, onClose, currentUserId }: Props) {
+/**
+ * La conversación ocupa toda la pantalla debajo del header de Botón Rojo: es la
+ * vía por la que se generan las solicitudes, así que no compite con nada más.
+ */
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="flex-1 flex flex-col min-h-0">{children}</div>
+}
+
+export default function SupportChat({
+  currentUserId,
+  conversationId,
+  prefill,
+  prefillNonce,
+  autoSend = false,
+}: Props) {
   const [messages, setMessages] = useState<SupportMessage[]>([])
   const [input, setInput] = useState('')
   const [pending, setPending] = useState<PendingFile[]>([])
   const [attachError, setAttachError] = useState('')
   const [sending, setSending] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  // undefined = todavía no lo consultamos; null = el usuario no tiene teléfono
+  const [savedPhone, setSavedPhone] = useState<string | null | undefined>(undefined)
+  const [phoneInput, setPhoneInput] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+  const [savingPhone, setSavingPhone] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // false cuando el usuario subió a leer historial: ahí no lo movemos.
+  const stickToBottom = useRef(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const optimisticIds = useRef<Set<string>>(new Set())
   const supabase = createClient()
   const waitingForReply = loaded && messages.length > 0 && !messages[messages.length - 1].is_bot && !sending
   const canSend = (input.trim().length > 0 || pending.length > 0) && !sending
+  // Sin teléfono, MoP no puede vincular las órdenes del bot con este usuario:
+  // los eventos mop.order.* identifican al cliente por número, no por id.
+  const needsPhone = savedPhone === null
 
   useEffect(() => {
-    if (!open || loaded) return
+    if (loaded) return
 
-    supabase
+    const query = supabase
       .from('support_messages')
       .select(SELECT_COLUMNS)
       .eq('user_id', currentUserId)
+
+    // Con conversación abierta solo traemos su hilo; el historial anterior
+    // (otras conversaciones, o los mensajes viejos sin id) queda afuera.
+    if (conversationId) query.eq('conversation_id', conversationId)
+
+    query
       .order('created_at', { ascending: true })
       .then(({ data }) => {
         setMessages((data as SupportMessage[]) ?? [])
         setLoaded(true)
       })
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    supabase
+      .from('profiles')
+      .select('phone')
+      .eq('id', currentUserId)
+      .single()
+      .then(({ data }) => setSavedPhone(normalizeArPhone(data?.phone) ?? null))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSavePhone = async () => {
+    const normalized = normalizeArPhone(phoneInput)
+    if (!normalized) {
+      setPhoneError(PHONE_ERROR)
+      return
+    }
+    setPhoneError('')
+    setSavingPhone(true)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ phone: normalized, updated_at: new Date().toISOString() })
+      .eq('id', currentUserId)
+
+    setSavingPhone(false)
+    if (error) {
+      setPhoneError('No pudimos guardar tu número. Probá de nuevo.')
+      return
+    }
+    setSavedPhone(normalized)
+    setPhoneInput('')
+  }
 
   useEffect(() => {
-    if (!open) return
 
     const channel = supabase
       .channel(`support:${currentUserId}`)
@@ -164,6 +235,9 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
         },
         (payload) => {
           const newMsg = payload.new as SupportMessage
+          // Realtime filtra por user_id nomás: descartamos lo que caiga en
+          // otro hilo (p. ej. el chat abierto en otra pestaña).
+          if (conversationId && newMsg.conversation_id !== conversationId) return
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev
 
@@ -190,24 +264,45 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scrollToBottom = (behavior: ScrollBehavior) => {
+  // Precarga el mensaje inicial (ej. "Nueva solicitud Plomería").
+  useEffect(() => {
+    if (prefill) setInput(prefill)
+  }, [prefillNonce]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Auto-envío del prefill. Espera a que el historial esté cargado y a que haya
+   * teléfono (si falta, primero se pide y se envía cuando lo cargue). El ref
+   * evita el doble disparo del StrictMode y los reenvíos por re-render.
+   */
+  const autoSentFor = useRef<number | null>(null)
+  useEffect(() => {
+    if (!autoSend || !prefill || !loaded) return
+    if (needsPhone || savedPhone === undefined) return
+    if (autoSentFor.current === (prefillNonce ?? 0)) return
+    autoSentFor.current = prefillNonce ?? 0
+    sendMessage(prefill)
+  }, [autoSend, prefill, prefillNonce, loaded, needsPhone, savedPhone]) // eslint-disable-line react-hooks/exhaustive-deps
+
+
+  /**
+   * Pegado al fondo. Corre después de cada render, así el listado queda abajo
+   * pase lo que pase: al entrar, cuando carga el historial, cuando crece la
+   * barra de escritura (adjuntos) y cuando llega un mensaje nuevo. Se desactiva
+   * si el usuario sube a leer historial.
+   */
+  useEffect(() => {
+    if (!stickToBottom.current) return
     const el = scrollRef.current
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior })
+    if (el) el.scrollTop = el.scrollHeight
+  })
+
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }
-
-  // Al abrir, saltamos al final sin animación: queremos ver el último mensaje ya
-  // posicionado, no el scroll viajando desde arriba.
-  useEffect(() => {
-    if (!open || !loaded) return
-    requestAnimationFrame(() => scrollToBottom('auto'))
-  }, [open, loaded])
-
-  // Mensajes nuevos y adjuntos pendientes: acompañamos con animación.
-  useEffect(() => {
-    scrollToBottom('smooth')
-  }, [messages, pending])
 
   /**
    * Las imágenes ocupan alto recién cuando cargan, así que corren el contenido
@@ -217,7 +312,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
   const handleAttachmentLoad = () => {
     const el = scrollRef.current
     if (!el) return
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) scrollToBottom('auto')
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) el.scrollTop = el.scrollHeight
   }
 
   // Liberar los object URLs de las previsualizaciones al desmontar
@@ -269,8 +364,8 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
     setAttachError('')
   }
 
-  const sendMessage = async () => {
-    const content = input.trim()
+  const sendMessage = async (override?: string) => {
+    const content = (override ?? input).trim()
     const files = pending
     if ((!content && files.length === 0) || sending) return
 
@@ -288,6 +383,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
       content,
       created_at: new Date().toISOString(),
       is_bot: false,
+      conversation_id: conversationId ?? null,
       attachments: files.length
         ? files.map((f) => ({
             type: typeForMime(f.file.type),
@@ -312,7 +408,11 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
       const res = await fetch('/api/support/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, ...(attachments.length > 0 && { attachments }) }),
+        body: JSON.stringify({
+          content,
+          ...(conversationId && { conversationId }),
+          ...(attachments.length > 0 && { attachments }),
+        }),
       })
 
       if (!res.ok) throw new Error(await res.text())
@@ -346,62 +446,22 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-60 transition-opacity duration-300"
-        style={{
-          backgroundColor: 'rgba(0,0,0,0.4)',
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
-        }}
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div
-        className="fixed z-70 flex flex-col rounded-t-3xl overflow-hidden"
-        style={{
-          left: 'max(0px, calc(50vw - 215px))',
-          right: 'max(0px, calc(50vw - 215px))',
-          bottom: 0,
-          height: '78vh',
-          backgroundColor: 'var(--bg-body)',
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.22)',
-          transform: open ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
-        {/* drag handle */}
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: '#d0d0d0' }} />
-        </div>
-
-        {/* Header — mismo ícono que el botón que abre el chat + cerrar */}
-        <div className="flex items-center justify-between px-4 pt-1 pb-2 flex-shrink-0">
-          <Image src="/icons/chat.svg" alt="" width={30} height={30} />
-          <button
-            onClick={onClose}
-            className="flex items-center justify-center rounded-full"
-            style={{ width: 32, height: 32, backgroundColor: 'var(--bg-cards)' }}
-            aria-label="Cerrar chat"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-
+    <Shell>
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col gap-2 px-4 pb-3">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-2 px-4 py-3"
+        >
           {!loaded && (
             <div className="flex justify-center items-center h-full">
               <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary-red)', borderTopColor: 'transparent' }} />
             </div>
           )}
 
-          {loaded && messages.length === 0 && (
+          {/* Con autoSend el primer mensaje sale solo: mostrar "escribinos"
+              en ese hueco sería un parpadeo. */}
+          {loaded && messages.length === 0 && !autoSend && (
             <div className="flex flex-col items-center justify-center h-full gap-2">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -491,8 +551,14 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           )}
         </div>
 
+        {/* Footer: último tramo de la columna de alto fijo, así que queda
+            siempre abajo sin taparle contenido al listado. */}
+        <div
+          className="flex-shrink-0 z-10"
+          style={{ backgroundColor: 'var(--bg-body)' }}
+        >
         {/* Adjuntos pendientes */}
-        {(pending.length > 0 || attachError) && (
+        {!needsPhone && (pending.length > 0 || attachError) && (
           <div className="px-4 pb-2 flex-shrink-0">
             {pending.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -534,7 +600,73 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           </div>
         )}
 
-        {/* Input */}
+        {/* Pedido de WhatsApp — reemplaza la barra de escritura hasta que haya
+            número, porque sin él MoP no puede vincular las órdenes del bot. */}
+        {needsPhone ? (
+          <div
+            className="flex flex-col gap-2 px-4 pt-3 flex-shrink-0"
+            style={{
+              borderTop: '1px solid #ebebeb',
+              paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))',
+              backgroundColor: 'var(--bg-body)',
+            }}
+          >
+            <span className="text-sm font-bold" style={{ color: 'var(--text-dark)' }}>
+              Antes de empezar, dejanos tu WhatsApp
+            </span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Lo usamos para identificarte y que puedas seguir tus solicitudes desde la app.
+            </span>
+            <div className="flex items-center gap-2 mt-1">
+              <div
+                className="flex items-center px-3 rounded-full text-sm font-semibold flex-shrink-0"
+                style={{ backgroundColor: 'var(--bg-cards)', border: '1.5px solid #e0e0e0', color: 'var(--text-dark)', height: 42 }}
+              >
+                +54 9
+              </div>
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={(e) => { setPhoneInput(e.target.value); setPhoneError('') }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSavePhone() } }}
+                placeholder={PHONE_PLACEHOLDER}
+                className="flex-1 min-w-0 rounded-full px-4 outline-none"
+                style={{
+                  fontSize: 16,
+                  height: 42,
+                  backgroundColor: 'var(--bg-cards)',
+                  color: 'var(--text-dark)',
+                  border: `1.5px solid ${phoneError ? 'var(--primary-red)' : '#e0e0e0'}`,
+                  fontFamily: 'Comfortaa, sans-serif',
+                }}
+              />
+              <button
+                onClick={handleSavePhone}
+                disabled={!phoneInput.trim() || savingPhone}
+                className="flex-shrink-0 flex items-center justify-center rounded-full transition-opacity"
+                style={{
+                  width: 42,
+                  height: 42,
+                  backgroundColor: 'var(--primary-red)',
+                  opacity: !phoneInput.trim() || savingPhone ? 0.4 : 1,
+                }}
+                aria-label="Guardar número"
+              >
+                {savingPhone ? (
+                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            {phoneError && (
+              <span className="text-[11px]" style={{ color: 'var(--primary-red)' }}>{phoneError}</span>
+            )}
+          </div>
+        ) : (
+        /* Input */
         <div
           className="flex items-center gap-2 px-4 pt-3 flex-shrink-0"
           style={{
@@ -584,7 +716,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
             }}
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!canSend}
             className="flex-shrink-0 flex items-center justify-center rounded-full transition-opacity"
             style={{
@@ -604,7 +736,8 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
             )}
           </button>
         </div>
-      </div>
-    </>
+        )}
+        </div>
+    </Shell>
   )
 }

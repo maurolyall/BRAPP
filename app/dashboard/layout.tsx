@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabaseServer'
-import PublicHeader from '@/components/layout/PublicHeader'
+import DashboardHeader from '@/components/dashboard/DashboardHeader'
 import BottomNav from '@/components/dashboard/BottomNav'
 import ToastProvider from '@/components/ui/ToastProvider'
+import DashboardMain from '@/components/dashboard/DashboardMain'
 
 export default async function DashboardLayout({
   children,
@@ -27,10 +28,8 @@ export default async function DashboardLayout({
   return (
     <ToastProvider>
       <main className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-body)' }}>
-        <PublicHeader logoHref="/dashboard" />
-        <div className="flex-1 px-4 pt-8 pb-40">
-          {children}
-        </div>
+        <DashboardHeader />
+        <DashboardMain>{children}</DashboardMain>
         <BottomNav role={role} userId={user.id} />
       </main>
     </ToastProvider>

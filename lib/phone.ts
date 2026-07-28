@@ -64,6 +64,25 @@ export function isValidArPhone(raw: string | null | undefined): boolean {
   return normalizeArPhone(raw) !== null
 }
 
+/**
+ * Clave canónica para comparar teléfonos entre sistemas: los 10 dígitos del
+ * número nacional significativo (código de área + abonado).
+ *
+ * Existe porque WhatsApp y MoP no siempre mandan el `9` de móvil argentino —
+ * el `wa_id` suele venir como `5411...` mientras que el E.164 es `54911...`.
+ * Comparar el string completo fallaría; los últimos 10 dígitos son idénticos
+ * en ambas formas.
+ *
+ *   arPhoneKey('+5491133445566') === arPhoneKey('541133445566')  // '1133445566'
+ *
+ * En la base hay una columna generada equivalente (`profiles.phone_key`), así
+ * que el match se resuelve con un índice en vez de escanear la tabla.
+ */
+export function arPhoneKey(raw: string | null | undefined): string | null {
+  const normalized = normalizeArPhone(raw)
+  return normalized ? normalized.slice(-10) : null
+}
+
 export const PHONE_PLACEHOLDER = 'Ej: 11 2345 6789'
 export const PHONE_HELP = 'Ingresá tu celular con código de área, sin el 0 ni el 15.'
 export const PHONE_ERROR = 'Ingresá un celular argentino válido (código de área + número, sin 0 ni 15).'

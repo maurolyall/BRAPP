@@ -1,12 +1,18 @@
+import { Suspense } from 'react'
 import { createServerClient } from '@/lib/supabaseServer'
 import { notFound } from 'next/navigation'
-import BookingRequestForm from '@/components/dashboard/client/BookingRequestForm'
+import ServiceChatView from '@/components/dashboard/client/ServiceChatView'
 
 interface Props {
   params: Promise<{ categoryId: string }>
 }
 
-export default async function BookingRequestPage({ params }: Props) {
+/**
+ * Las solicitudes ya no se crean por formulario: la orden la genera el bot de
+ * MoP durante la conversación. Esta página abre el chat con el pedido inicial
+ * ya enviado.
+ */
+export default async function ServiceChatPage({ params }: Props) {
   const { categoryId } = await params
   const supabase = await createServerClient()
 
@@ -21,33 +27,14 @@ export default async function BookingRequestPage({ params }: Props) {
 
   if (!category) notFound()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('address, floor_apt, lot, city')
-    .eq('id', user!.id)
-    .single()
-
-  const defaultAddress = [
-    profile?.address,
-    profile?.floor_apt,
-    profile?.lot,
-    profile?.city,
-  ]
-    .filter(Boolean)
-    .join(', ')
-
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold animate-fade-in" style={{ color: 'var(--text-dark)' }}>
-        {category.name}
-      </h1>
-      <div className="animate-fade-in" style={{ animationDelay: '60ms' }}>
-        <BookingRequestForm
-          userId={user!.id}
-          categoryId={category.id}
-          defaultAddress={defaultAddress}
-        />
-      </div>
-    </div>
+    // La vista lee `?new=1` con useSearchParams, que necesita un límite de Suspense.
+    <Suspense fallback={<div className="flex-1" />}>
+      <ServiceChatView
+        currentUserId={user!.id}
+        categoryId={category.id}
+        categoryName={category.name}
+      />
+    </Suspense>
   )
 }

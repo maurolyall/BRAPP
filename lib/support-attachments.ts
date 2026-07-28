@@ -126,15 +126,19 @@ export function parseIncomingAttachments(raw: unknown): SupportAttachment[] {
   const out: SupportAttachment[] = []
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue
-    const { type, url, mime, filename } = item as Record<string, unknown>
+    const { type, url, mime, filename, caption } = item as Record<string, unknown>
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) continue
 
     const mimeStr = typeof mime === 'string' ? mime : undefined
+    // MoP manda `caption` (ej. "Presupuesto"), no `filename`.
+    const name =
+      typeof filename === 'string' ? filename : typeof caption === 'string' ? caption : undefined
+
     out.push({
       type: type === 'image' ? 'image' : type === 'file' ? 'file' : mimeStr ? typeForMime(mimeStr) : 'file',
       url,
       mime: mimeStr,
-      filename: typeof filename === 'string' ? filename : undefined,
+      filename: name,
     })
   }
   return out

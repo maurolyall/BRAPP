@@ -240,3 +240,15 @@
 .typing-dot:nth-child(1) { animation: typing-dot 1.4s ease-in-out infinite 0s; }
 .typing-dot:nth-child(2) { animation: typing-dot 1.4s ease-in-out infinite 0.2s; }
 .typing-dot:nth-child(3) { animation: typing-dot 1.4s ease-in-out infinite 0.4s; }
+
+/* Vista de chat a pantalla completa.
+   El listado de mensajes solo puede scrollear si su contenedor tiene alto
+   definido: `min-h-screen` deja el alto en auto y el flex-1 crece con el
+   contenido en vez de recortarlo. Acá fijamos el alto exacto del viewport. */
+body.chat-view {
+  overflow: hidden;
+}
+body.chat-view main {
+  height: 100dvh;
+  min-height: 0;
+}

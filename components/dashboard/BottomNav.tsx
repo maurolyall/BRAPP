@@ -1,11 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
 import { UserRole } from '@/types'
-import SupportChatDrawer from './SupportChatDrawer'
+import { isChatRoute } from './chatRoutes'
 
 interface BottomNavProps {
   role: UserRole
@@ -104,47 +102,15 @@ const providerItems = [
   },
 ]
 
-export default function BottomNav({ role, userId }: BottomNavProps) {
+export default function BottomNav({ role }: BottomNavProps) {
   const pathname = usePathname()
   const items = role === 'provider' ? providerItems : clientItems
-  const [supportOpen, setSupportOpen] = useState(false)
+
+  // La vista de chat ocupa toda la pantalla: sin nav inferior.
+  if (isChatRoute(pathname)) return null
 
   return (
     <>
-      {role !== 'provider' && (
-        <>
-          <SupportChatDrawer
-            open={supportOpen}
-            onClose={() => setSupportOpen(false)}
-            currentUserId={userId}
-          />
-          <button
-            onClick={() => setSupportOpen(true)}
-            className="fixed z-40 flex items-center justify-center rounded-full bg-white"
-            style={{
-              bottom: 'calc(1rem + 72px + 12px)',
-              right: 'max(1.5rem, calc(50vw - 215px + 1.5rem))',
-              width: 52,
-              height: 52,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
-            }}
-          >
-            <div className="relative">
-              <Image src="/icons/chat.svg" alt="Chat" width={30} height={30} />
-              <span
-                className="absolute rounded-full border-2 border-white"
-                style={{
-                  width: 10,
-                  height: 10,
-                  backgroundColor: '#22c55e',
-                  bottom: -1,
-                  right: -1,
-                }}
-              />
-            </div>
-          </button>
-        </>
-      )}
     <nav
       className="fixed bottom-4 z-40 flex items-center justify-around px-2 py-3 rounded-3xl"
       style={{

@@ -46,7 +46,10 @@ export default function ServiceCategoryGrid({ categories }: Props) {
         {filtered.map((cat) => (
           <Link
             key={cat.id}
-            href={`/dashboard/client/services/${cat.id}`}
+            // Lleva a la vista de chat, que envía sola "Nueva solicitud X".
+            // La orden la crea el bot de MoP, no un formulario. `new=1` marca
+            // que se arranca una conversación limpia, sin el historial viejo.
+            href={`/dashboard/client/services/${cat.id}?new=1`}
             className="card py-6 px-4 flex flex-col items-center justify-center gap-3 transition-all hover:shadow-md"
           >
             {cat.icon_url && (
