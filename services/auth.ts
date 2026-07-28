@@ -25,10 +25,11 @@ export async function register(
   email: string,
   password: string,
   fullName: string,
-  role: UserRole
+  role: UserRole,
+  phone?: string | null
 ) {
   const supabase = createClient()
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -38,6 +39,12 @@ export async function register(
 
   if (error) {
     return { error: translateError(error.message) }
+  }
+
+  // El perfil lo crea el trigger handle_new_user; el teléfono (ya en E.164
+  // para MoP) lo escribimos acá, igual que el resto de los datos extra.
+  if (phone && data.user) {
+    await supabase.from('profiles').update({ phone }).eq('id', data.user.id)
   }
 
   return { error: null }

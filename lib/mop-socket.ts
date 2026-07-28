@@ -113,7 +113,11 @@ async function handleOutbound(evt: OutboundEvent) {
 }
 
 export function getMopSocket(): Socket {
-  if (global._mopSocket?.connected) return global._mopSocket
+  // `active` es true mientras socket.io está reintentando la reconexión: en esa
+  // ventana hay que devolver el socket existente, no crear uno nuevo. Los emits
+  // quedan encolados y salen al reconectar. Solo recreamos si la conexión murió
+  // de verdad (nunca existió, o el server la rechazó y ya no reintenta).
+  if (global._mopSocket?.connected || global._mopSocket?.active) return global._mopSocket
 
   if (global._mopSocket) {
     global._mopSocket.removeAllListeners()

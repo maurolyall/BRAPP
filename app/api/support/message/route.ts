@@ -8,17 +8,9 @@ import {
   SupportAttachment,
   validateUploads,
 } from '@/lib/support-attachments'
+import { normalizeArPhone } from '@/lib/phone'
 
 const BUCKET = 'support-attachments'
-
-function toE164(phone: string | null): string | null {
-  if (!phone) return null
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length < 10 || digits.length > 15) return null
-  if (phone.startsWith('+')) return `+${digits}`
-  if (digits.startsWith('54')) return `+${digits}`
-  return `+54${digits}`
-}
 
 export async function POST(req: NextRequest) {
   const supabase = await createServerClient()
@@ -86,14 +78,19 @@ export async function POST(req: NextRequest) {
   // Emit to MoP — el archivo viaja embebido en base64 dentro del mismo
   // client_event (mop.client.message.inbound/v1). `text` es requerido.
   const socket = getMopSocket()
+  const phone = normalizeArPhone(profile?.phone)
   const payload = {
     schema: 'mop.client.message.inbound/v1',
     idempotencyKey: crypto.randomUUID(),
     payload: {
       externalUserId: user.id,
+      // MoP exige phone o email — el CRM rechaza el contacto sin al menos uno.
+      // Mandamos el teléfono solo si es válido: un número inventado ensucia el
+      // CRM y hace que todos los usuarios sin teléfono colapsen en un contacto.
       user: {
         name: profile?.full_name ?? 'Usuario',
-        phone: toE164(profile?.phone) ?? '+5400000000000',
+        ...(phone && { phone }),
+        ...(user.email && { email: user.email }),
       },
       text: content || ATTACHMENT_ONLY_TEXT,
       ...(uploads.length > 0 && {

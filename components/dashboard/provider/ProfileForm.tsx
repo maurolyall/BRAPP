@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabaseClient'
 import Input from '@/components/ui/Input'
 import { useToast } from '@/components/ui/ToastProvider'
+import { normalizeArPhone, PHONE_ERROR, PHONE_HELP, PHONE_PLACEHOLDER } from '@/lib/phone'
 
 interface ProfileData {
   full_name: string
@@ -34,10 +35,19 @@ export default function ProfileForm({ profile }: Props) {
   const [address, setAddress] = useState(profile.address)
   const [floorApt, setFloorApt] = useState(profile.floor_apt)
   const [lot, setLot] = useState(profile.lot)
+  const [phoneError, setPhoneError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // MoP necesita el teléfono en E.164 — lo guardamos ya normalizado.
+    const normalizedPhone = phone.trim() ? normalizeArPhone(phone) : null
+    if (phone.trim() && !normalizedPhone) {
+      setPhoneError(PHONE_ERROR)
+      return
+    }
+    setPhoneError('')
     setLoading(true)
 
     const supabase = createClient()
@@ -47,7 +57,7 @@ export default function ProfileForm({ profile }: Props) {
       .from('profiles')
       .update({
         full_name: fullName,
-        phone,
+        phone: normalizedPhone,
         date_of_birth: dateOfBirth || null,
         dni,
         cuit,
@@ -64,6 +74,7 @@ export default function ProfileForm({ profile }: Props) {
     if (error) {
       show('No se pudo guardar. Intentá de nuevo.', 'error')
     } else {
+      if (normalizedPhone) setPhone(normalizedPhone)
       show('Perfil actualizado correctamente')
     }
   }
@@ -82,13 +93,19 @@ export default function ProfileForm({ profile }: Props) {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
           />
-          <Input
-            label="Teléfono"
-            type="tel"
-            placeholder="Ej: +54 9 11 1234-5678"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
+          <div>
+            <Input
+              label="Celular"
+              type="tel"
+              placeholder={PHONE_PLACEHOLDER}
+              value={phone}
+              onChange={(e) => { setPhone(e.target.value); setPhoneError('') }}
+              error={phoneError}
+            />
+            {!phoneError && (
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{PHONE_HELP}</p>
+            )}
+          </div>
           <Input
             label="Fecha de nacimiento"
             type="date"

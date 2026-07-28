@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input'
 import { UserRole } from '@/types'
 import PublicHeader from '@/components/layout/PublicHeader'
 import { createClient } from '@/lib/supabaseClient'
+import { normalizeArPhone, PHONE_ERROR, PHONE_HELP, PHONE_PLACEHOLDER } from '@/lib/phone'
 
 type Step =
   | 'select'
@@ -67,6 +68,8 @@ function RegisterForm() {
   // Client form state
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [phoneError, setPhoneError] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -81,6 +84,7 @@ function RegisterForm() {
   const [providerFloor, setProviderFloor] = useState('')
   const [providerLot, setProviderLot] = useState('')
   const [providerPhone, setProviderPhone] = useState('')
+  const [providerPhoneError, setProviderPhoneError] = useState('')
 
   // Provider step 4
   const [categories, setCategories] = useState<ServiceCategory[]>([])
@@ -122,14 +126,33 @@ function RegisterForm() {
   const handleClientRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    // El celular va a MoP en E.164 — lo guardamos ya normalizado.
+    const normalizedPhone = normalizeArPhone(phone)
+    if (!normalizedPhone) {
+      setPhoneError(PHONE_ERROR)
+      return
+    }
+    setPhoneError('')
     setLoading(true)
-    const { error } = await register(email, password, name, 'user' as UserRole)
+
+    const { error } = await register(email, password, name, 'user' as UserRole, normalizedPhone)
     if (error) {
       setError(error)
     } else {
       setStep('client-success')
     }
     setLoading(false)
+  }
+
+  // El teléfono va a MoP en E.164, así que lo validamos antes de avanzar.
+  const handleProviderPhoneNext = () => {
+    if (!normalizeArPhone(providerPhone)) {
+      setProviderPhoneError(PHONE_ERROR)
+      return
+    }
+    setProviderPhoneError('')
+    setStep('provider-4')
   }
 
   const handleProviderRegister = async () => {
@@ -159,7 +182,7 @@ function RegisterForm() {
     await supabase
       .from('profiles')
       .update({
-        phone: providerPhone,
+        phone: normalizeArPhone(providerPhone),
         date_of_birth: providerDob || null,
         city: providerCity,
         address: providerAddress,
@@ -254,6 +277,20 @@ function RegisterForm() {
                   label="Email"
                   required
                 />
+                <div>
+                  <Input
+                    type="tel"
+                    placeholder={PHONE_PLACEHOLDER}
+                    value={phone}
+                    onChange={(e) => { setPhone(e.target.value); setPhoneError('') }}
+                    label="Celular"
+                    error={phoneError}
+                    required
+                  />
+                  {!phoneError && (
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{PHONE_HELP}</p>
+                  )}
+                </div>
                 <Input
                   type="password"
                   placeholder="Mínimo 6 caracteres"
@@ -411,24 +448,34 @@ function RegisterForm() {
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1" style={{ color: 'var(--text-dark)' }}>
-                    Teléfono
+                    Celular
                   </label>
                   <div className="flex gap-2">
                     <div
                       className="flex items-center px-3 rounded-full text-sm font-semibold border flex-shrink-0"
                       style={{ backgroundColor: 'var(--bg-body)', borderColor: '#d0d0d0', color: 'var(--text-dark)' }}
                     >
-                      +54
+                      +54 9
                     </div>
                     <input
                       type="tel"
-                      placeholder="Ej: 11 1234 5678"
+                      placeholder="Ej: 11 2345 6789"
                       value={providerPhone}
-                      onChange={(e) => setProviderPhone(e.target.value)}
-                      className="flex-1 px-4 py-3 rounded-full text-[16px] border outline-none"
-                      style={{ borderColor: '#d0d0d0', backgroundColor: 'var(--bg-cards)', color: 'var(--text-dark)' }}
+                      onChange={(e) => { setProviderPhone(e.target.value); setProviderPhoneError('') }}
+                      className="flex-1 min-w-0 px-4 py-3 rounded-full text-[16px] border outline-none"
+                      style={{
+                        borderColor: providerPhoneError ? 'var(--primary-red)' : '#d0d0d0',
+                        backgroundColor: 'var(--bg-cards)',
+                        color: 'var(--text-dark)',
+                      }}
                     />
                   </div>
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: providerPhoneError ? 'var(--primary-red)' : 'var(--text-muted)' }}
+                  >
+                    {providerPhoneError || PHONE_HELP}
+                  </p>
                 </div>
 
                 <Button type="button" variant="secondary" className="w-full">
@@ -437,7 +484,7 @@ function RegisterForm() {
 
                 <StepButtons
                   onBack={() => setStep('provider-2')}
-                  onNext={() => setStep('provider-4')}
+                  onNext={handleProviderPhoneNext}
                 />
               </div>
             </div>

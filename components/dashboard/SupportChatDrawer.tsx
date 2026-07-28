@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, KeyboardEvent, ChangeEvent } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabaseClient'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -73,7 +74,15 @@ function FileIcon({ color }: { color: string }) {
   )
 }
 
-function AttachmentList({ attachments, isOwn }: { attachments: SupportAttachment[]; isOwn: boolean }) {
+function AttachmentList({
+  attachments,
+  isOwn,
+  onImageLoad,
+}: {
+  attachments: SupportAttachment[]
+  isOwn: boolean
+  onImageLoad?: () => void
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       {attachments.map((att, i) =>
@@ -85,6 +94,7 @@ function AttachmentList({ attachments, isOwn }: { attachments: SupportAttachment
               alt={att.filename ?? 'Imagen adjunta'}
               className="rounded-xl object-cover"
               style={{ maxWidth: '100%', maxHeight: 220 }}
+              onLoad={onImageLoad}
             />
           </a>
         ) : (
@@ -118,7 +128,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
   const [attachError, setAttachError] = useState('')
   const [sending, setSending] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const optimisticIds = useRef<Set<string>>(new Set())
   const supabase = createClient()
@@ -182,9 +192,33 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
     return () => { supabase.removeChannel(channel) }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const scrollToBottom = (behavior: ScrollBehavior) => {
+    const el = scrollRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior })
+  }
+
+  // Al abrir, saltamos al final sin animación: queremos ver el último mensaje ya
+  // posicionado, no el scroll viajando desde arriba.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!open || !loaded) return
+    requestAnimationFrame(() => scrollToBottom('auto'))
+  }, [open, loaded])
+
+  // Mensajes nuevos y adjuntos pendientes: acompañamos con animación.
+  useEffect(() => {
+    scrollToBottom('smooth')
   }, [messages, pending])
+
+  /**
+   * Las imágenes ocupan alto recién cuando cargan, así que corren el contenido
+   * después del render. Reajustamos solo si el usuario ya estaba mirando el
+   * final, para no arrancarlo de donde estaba leyendo.
+   */
+  const handleAttachmentLoad = () => {
+    const el = scrollRef.current
+    if (!el) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) scrollToBottom('auto')
+  }
 
   // Liberar los object URLs de las previsualizaciones al desmontar
   const pendingRef = useRef<PendingFile[]>([])
@@ -343,27 +377,14 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: '#d0d0d0' }} />
         </div>
 
-        {/* Header */}
-        <div
-          className="flex items-center gap-3 mx-4 mt-2 mb-3 px-3 py-3 rounded-2xl flex-shrink-0"
-          style={{ backgroundColor: 'var(--bg-cards)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-        >
-          <div
-            className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: 'var(--primary-red)' }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-sm font-bold" style={{ color: 'var(--text-dark)' }}>Soporte Botón Rojo</span>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Asistente virtual · siempre disponible</span>
-          </div>
+        {/* Header — mismo ícono que el botón que abre el chat + cerrar */}
+        <div className="flex items-center justify-between px-4 pt-1 pb-2 flex-shrink-0">
+          <Image src="/icons/chat.svg" alt="" width={30} height={30} />
           <button
             onClick={onClose}
-            className="flex-shrink-0 flex items-center justify-center rounded-full"
-            style={{ width: 32, height: 32, backgroundColor: 'var(--bg-body)' }}
+            className="flex items-center justify-center rounded-full"
+            style={{ width: 32, height: 32, backgroundColor: 'var(--bg-cards)' }}
+            aria-label="Cerrar chat"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -373,7 +394,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2 px-4 pb-3">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col gap-2 px-4 pb-3">
           {!loaded && (
             <div className="flex justify-center items-center h-full">
               <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary-red)', borderTopColor: 'transparent' }} />
@@ -410,7 +431,7 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
                     }}
                   >
                     {attachments.length > 0 && (
-                      <AttachmentList attachments={attachments} isOwn={isOwn} />
+                      <AttachmentList attachments={attachments} isOwn={isOwn} onImageLoad={handleAttachmentLoad} />
                     )}
                     {msg.content && (msg.is_bot ? (
                       <ReactMarkdown
@@ -468,7 +489,6 @@ export default function SupportChatDrawer({ open, onClose, currentUserId }: Prop
               </div>
             </div>
           )}
-          <div ref={bottomRef} />
         </div>
 
         {/* Adjuntos pendientes */}
