@@ -281,9 +281,11 @@ export default function SupportChat({
     if (!autoSend || !prefill || !loaded) return
     if (needsPhone || savedPhone === undefined) return
     if (autoSentFor.current === (prefillNonce ?? 0)) return
+    // No reenviar si la conversación ya tiene mensajes
+    if (messages.length > 0) return
     autoSentFor.current = prefillNonce ?? 0
     sendMessage(prefill)
-  }, [autoSend, prefill, prefillNonce, loaded, needsPhone, savedPhone]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [autoSend, prefill, prefillNonce, loaded, needsPhone, savedPhone, messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   /**

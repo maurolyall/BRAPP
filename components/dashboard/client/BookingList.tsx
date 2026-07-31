@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ACTIVE_STATUSES, STATUS_LABEL, DATE_LABEL } from '@/lib/bookingConstants'
+import RatingBottomSheet from './RatingBottomSheet'
 
 interface BookingItem {
   id: string
@@ -32,6 +33,7 @@ function isActive(status: string) {
 
 export default function BookingList({ bookings }: Props) {
   const [tab, setTab] = useState<Tab>('all')
+  const [ratingBooking, setRatingBooking] = useState<BookingItem | null>(null)
 
   const filtered = bookings.filter((b) => {
     if (tab === 'active')    return ACTIVE_STATUSES.includes(b.status)
@@ -132,9 +134,33 @@ export default function BookingList({ bookings }: Props) {
                   </span>
                 )}
               </div>
+
+              {b.status === 'completed' && (
+                <button
+                  onClick={(e) => { e.preventDefault(); setRatingBooking(b) }}
+                  className="mt-1 text-xs font-semibold px-3 py-1.5 rounded-full self-start"
+                  style={{ backgroundColor: 'var(--primary-red)', color: '#fff' }}
+                >
+                  ⭐ Valorar
+                </button>
+              )}
             </Link>
           ))}
         </div>
+      )}
+
+      {ratingBooking && (
+        <RatingBottomSheet
+          open={true}
+          onClose={() => setRatingBooking(null)}
+          booking={{
+            id: ratingBooking.id,
+            categoryName: ratingBooking.category_name,
+            scheduledDate: ratingBooking.scheduled_date
+              ? (DATE_LABEL[ratingBooking.scheduled_date] ?? ratingBooking.scheduled_date)
+              : null,
+          }}
+        />
       )}
     </div>
   )

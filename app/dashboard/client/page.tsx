@@ -1,17 +1,49 @@
 import { createServerClient } from '@/lib/supabaseServer'
-import Image from 'next/image'
 import Link from 'next/link'
 import AdSlider from '@/components/dashboard/AdSlider'
+import HomeHero from '@/components/dashboard/client/HomeHero'
+import { DATE_LABEL } from '@/lib/bookingConstants'
 
 export default async function ClientHomePage() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user!.id)
-    .single()
+  const [{ data: profile }, { data: lastBooking }] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', user!.id).single(),
+    supabase
+      .from('bookings')
+      .select('id, scheduled_date, description, service_categories(name)')
+      .eq('user_id', user!.id)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  // Solo mostrar el sheet si el booking no tiene valoración aún
+  let showRatingFor = null
+  if (lastBooking) {
+    const { data: existingReview } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('booking_id', lastBooking.id)
+      .maybeSingle()
+
+    if (!existingReview) {
+      const categoryName = (Array.isArray(lastBooking.service_categories)
+        ? lastBooking.service_categories[0]?.name
+        : (lastBooking.service_categories as any)?.name) ?? 'Servicio'
+
+      showRatingFor = {
+        id: lastBooking.id,
+        categoryName,
+        description: lastBooking.description as string | null,
+        scheduledDate: lastBooking.scheduled_date
+          ? (DATE_LABEL[lastBooking.scheduled_date as string] ?? lastBooking.scheduled_date)
+          : null,
+      }
+    }
+  }
 
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
 
@@ -28,20 +60,11 @@ export default async function ClientHomePage() {
         </p>
       </div>
 
-      <div className="flex justify-center">
-        <Image
-          src="/icons/boton.svg"
-          alt="Botón Rojo"
-          width={280}
-          height={280}
-          className="w-full max-w-[280px] h-auto"
-          priority
-        />
-      </div>
+      <HomeHero lastCompletedBooking={showRatingFor} />
 
       {/* Buscador */}
       <Link
-        href="/dashboard/client/services"
+        href="/dashboard/client/chat"
         className="flex items-center gap-3 px-4 py-3.5 rounded-full"
         style={{
           backgroundColor: 'var(--bg-cards)',

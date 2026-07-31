@@ -3,5 +3,8 @@
  * la vista de chat desde la que se generan las solicitudes.
  */
 export function isChatRoute(pathname: string | null): boolean {
-  return /^\/dashboard\/client\/services\/[^/]+$/.test(pathname ?? '')
+  return (
+    /^\/dashboard\/client\/services\/[^/]+$/.test(pathname ?? '') ||
+    pathname === '/dashboard/client/chat'
+  )
 }

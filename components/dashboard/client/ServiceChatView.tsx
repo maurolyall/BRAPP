@@ -8,6 +8,7 @@ interface Props {
   currentUserId: string
   categoryId: string
   categoryName: string
+  backHref?: string
 }
 
 const storageKey = (categoryId: string) => `br:chat-conversation:${categoryId}`
@@ -21,7 +22,7 @@ const storageKey = (categoryId: string) => `br:chat-conversation:${categoryId}`
  * nueva: el chat aparece vacío, sin los pedidos anteriores. El id queda en
  * sessionStorage para que un refresh siga mostrando la misma conversación.
  */
-export default function ServiceChatView({ currentUserId, categoryId, categoryName }: Props) {
+export default function ServiceChatView({ currentUserId, categoryId, categoryName, backHref }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isNew = searchParams.get('new') === '1'
@@ -34,14 +35,14 @@ export default function ServiceChatView({ currentUserId, categoryId, categoryNam
     sessionStorage.setItem(key, id)
     setConversationId(id)
 
-    // Sacamos el `new=1` de la URL: si el usuario refresca, tiene que seguir
-    // en la conversación que ya empezó, no arrancar otra.
-    if (isNew) router.replace(`/dashboard/client/services/${categoryId}`, { scroll: false })
-  }, [categoryId, isNew, router])
+    if (isNew && !backHref) router.replace(`/dashboard/client/services/${categoryId}`, { scroll: false })
+  }, [categoryId, isNew, router, backHref])
+
+  const back = backHref ?? '/dashboard/client/services'
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <ChatHeader title={categoryName} onBack={() => router.push('/dashboard/client/services')} />
+      <ChatHeader title={categoryName} onBack={() => router.push(back)} />
 
       {/* Montamos recién con el id resuelto: así el chat nunca pinta mensajes
           de otro hilo mientras lo averigua. */}
@@ -65,11 +66,12 @@ export default function ServiceChatView({ currentUserId, categoryId, categoryNam
 function ChatHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <div
-      className="flex-shrink-0 flex items-center gap-3 px-3 py-3"
+      className="flex-shrink-0 flex items-center gap-3 px-4 pb-4"
       style={{
         backgroundColor: 'var(--bg-cards)',
-        borderBottom: '1px solid #ebebeb',
-        paddingTop: 'max(12px, env(safe-area-inset-top, 12px))',
+        borderBottomLeftRadius: '32px',
+        borderBottomRightRadius: '32px',
+        paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
       }}
     >
       <button
