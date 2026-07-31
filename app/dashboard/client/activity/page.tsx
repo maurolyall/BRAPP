@@ -1,15 +1,35 @@
 import { createServerClient } from '@/lib/supabaseServer'
 import BookingList from '@/components/dashboard/client/BookingList'
+import StoriesRow from '@/components/dashboard/stories/StoriesRow'
+import CurrentServiceCard from '@/components/dashboard/client/CurrentServiceCard'
 
 export default async function ClientActivityPage() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: bookings } = await supabase
-    .from('bookings')
-    .select('id, status, scheduled_date, address, created_at, service_categories(name)')
-    .eq('user_id', user!.id)
-    .order('created_at', { ascending: false })
+  const [{ data: bookings }, { data: stories }, { data: views }] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('id, status, scheduled_date, address, created_at, service_categories(name)')
+      .eq('user_id', user!.id)
+      .order('created_at', { ascending: false }),
+
+    supabase
+      .from('stories')
+      .select('id, title, image_url, link_url, created_at')
+      .eq('active', true)
+      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+      .order('sort_order', { ascending: true }),
+
+    user
+      ? supabase
+          .from('story_views')
+          .select('story_id')
+          .eq('user_id', user.id)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const viewedIds = (views ?? []).map((v: { story_id: string }) => v.story_id)
 
   const bookingIds = (bookings ?? []).map((b) => b.id)
 
@@ -34,6 +54,14 @@ export default async function ClientActivityPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {stories && stories.length > 0 && (
+        <StoriesRow
+          stories={stories}
+          currentUserId={user?.id ?? ''}
+          viewedIds={viewedIds}
+        />
+      )}
+      <CurrentServiceCard />
       <h1 className="text-xl font-bold animate-fade-in" style={{ color: 'var(--text-dark)' }}>Actividad</h1>
       <div className="animate-fade-in" style={{ animationDelay: '60ms' }}>
         <BookingList bookings={mapped} />

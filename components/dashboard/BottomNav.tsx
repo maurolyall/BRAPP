@@ -13,11 +13,15 @@ interface BottomNavProps {
 const clientItems = [
   {
     href: '/dashboard/client',
-    label: 'Home',
+    label: 'Inicio',
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-        <path d="M9 21V12h6v9" />
+      <svg width="26" height="19" viewBox="0 0 26 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12.5332" cy="9.5" r="9" stroke="currentColor" strokeLinejoin="round"/>
+        <path d="M16.5332 10.5C16.0332 11.5 14.7423 12.5 12.5332 12.5C10.3241 12.5 9.0332 11.5 8.5332 10.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M0.533802 3.5C0.367135 4.83333 0.733802 7.8 3.5338 9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M21.5332 10.5C22.5332 11 24.5332 12.7 24.5332 15.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M10.5332 7.5L10.5332 7.52344" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M14.5332 7.5L14.5332 7.52344" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -60,11 +64,15 @@ const clientItems = [
 const providerItems = [
   {
     href: '/dashboard/provider',
-    label: 'Home',
+    label: 'Inicio',
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-        <path d="M9 21V12h6v9" />
+      <svg width="26" height="19" viewBox="0 0 26 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12.5332" cy="9.5" r="9" stroke="currentColor" strokeLinejoin="round"/>
+        <path d="M16.5332 10.5C16.0332 11.5 14.7423 12.5 12.5332 12.5C10.3241 12.5 9.0332 11.5 8.5332 10.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M0.533802 3.5C0.367135 4.83333 0.733802 7.8 3.5338 9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M21.5332 10.5C22.5332 11 24.5332 12.7 24.5332 15.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M10.5332 7.5L10.5332 7.52344" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M14.5332 7.5L14.5332 7.52344" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },

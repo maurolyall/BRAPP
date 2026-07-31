@@ -1,47 +1,39 @@
 import { createServerClient } from '@/lib/supabaseServer'
 import ServiceCategoryGrid from '@/components/dashboard/client/ServiceCategoryGrid'
-import StoriesRow from '@/components/dashboard/stories/StoriesRow'
+import AdSlider from '@/components/dashboard/AdSlider'
+import Link from 'next/link'
 
 export default async function ClientServicesPage() {
   const supabase = await createServerClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const [{ data: categories }, { data: stories }, { data: views }] = await Promise.all([
-    supabase
-      .from('service_categories')
-      .select('id, name, icon_url')
-      .eq('active', true)
-      .order('name'),
-
-    supabase
-      .from('stories')
-      .select('id, title, image_url, link_url, created_at')
-      .eq('active', true)
-      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
-      .order('sort_order', { ascending: true }),
-
-    user
-      ? supabase
-          .from('story_views')
-          .select('story_id')
-          .eq('user_id', user.id)
-      : Promise.resolve({ data: [] }),
-  ])
-
-  const viewedIds = (views ?? []).map((v: { story_id: string }) => v.story_id)
+  const { data: categories } = await supabase
+    .from('service_categories')
+    .select('id, name, icon_url')
+    .eq('active', true)
+    .order('name')
 
   return (
     <div className="flex flex-col gap-5">
-      {stories && stories.length > 0 && (
-        <StoriesRow
-          stories={stories}
-          currentUserId={user?.id ?? ''}
-          viewedIds={viewedIds}
-        />
-      )}
       <div className="animate-fade-in">
         <ServiceCategoryGrid categories={categories ?? []} />
+      </div>
+
+      {/* Beneficios */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold flex items-center gap-1.5" style={{ color: 'var(--text-dark)' }}>
+            Beneficios Botón
+            <img src="/icons/tag.svg" alt="beneficios" width={20} height={20} />
+          </h2>
+          <Link
+            href="#"
+            className="text-xs font-semibold"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Ver todos los beneficios
+          </Link>
+        </div>
+        <AdSlider target="client" />
       </div>
     </div>
   )
